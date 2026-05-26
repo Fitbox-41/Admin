@@ -1,16 +1,80 @@
-# React + Vite
+# FitBox Admin Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, responsive, and aesthetically pleasing administrative dashboard for the FitBox sports ecosystem, built with React, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## 🌟 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Modern Glassmorphism UI**: Beautiful, translucent interface elements that provide a premium feel.
+- **Dynamic Dark/Light Mode**: Seamlessly switches themes for optimal viewing in any lighting condition.
+- **Responsive Design**: Fully functional and visually stunning across desktop, tablet, and mobile devices.
+- **Interactive Data Visualization**: Comprehensive charts and metrics for quick insights.
+- **High-Performance**: Lightning-fast load times powered by Vite.
 
-## React Compiler
+## 🛠️ Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend Framework**: React 19
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS v4
+- **Icons**: Lucide React
+- **Charts**: Recharts
+- **Routing**: React Router
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Prerequisites
+
+- Node.js (v18 or higher recommended)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Fitbox-41/Admin.git
+   ```
+
+2. Navigate to the frontend directory:
+   ```bash
+   cd Admin/Frontend
+   ```
+
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+### Running Locally
+
+To start the development server:
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5173`.
+
+## 📦 Building for Production
+
+To create a production-ready build:
+
+```bash
+npm run build
+```
+
+You can preview the production build locally with:
+
+```bash
+npm run preview
+```
+
+## 🎨 Design System
+
+The application uses a custom design system built on top of Tailwind CSS, utilizing CSS variables for consistent theming and easy customization. Key features include:
+
+- Custom typography (`Plus Jakarta Sans`, `Inter`, `Outfit`)
+- Tailwind `@theme` configuration
+- Reusable `glass` and `glass-dark` utility classes for unified component design
+
+## 📄 License
+
+This project is proprietary and confidential.
