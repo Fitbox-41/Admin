@@ -1,6 +1,29 @@
-import { Search, Bell, User, Menu } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Search, Bell, User, Menu, LogOut } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Topbar = ({ onMenuClick }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   return (
     <header className="h-20 bg-card-bg border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
       <div className="flex items-center gap-4 flex-1">
@@ -29,14 +52,32 @@ const Topbar = ({ onMenuClick }) => {
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card-bg"></span>
         </button>
         
-        <div className="flex items-center gap-3 border-l border-border pl-6 cursor-pointer">
-          <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary font-bold">
-            <User size={20} />
+        <div className="relative" ref={dropdownRef}>
+          <div 
+            className="flex items-center gap-3 border-l border-border pl-6 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setShowDropdown(!showDropdown)}
+          >
+            <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary font-bold">
+              {user?.name ? user.name.charAt(0).toUpperCase() : <User size={20} />}
+            </div>
+            <div className="hidden md:block text-sm">
+              <p className="font-semibold text-text-dark capitalize">{user?.name || 'Admin User'}</p>
+              <p className="text-text-light text-xs">Super Admin</p>
+            </div>
           </div>
-          <div className="hidden md:block text-sm">
-            <p className="font-semibold text-text-dark">Admin User</p>
-            <p className="text-text-light text-xs">Super Admin</p>
-          </div>
+
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <div className="absolute right-0 mt-3 w-48 bg-card-bg border border-border rounded-xl shadow-lg py-1 z-50 animate-in fade-in slide-in-from-top-2">
+              <button 
+                onClick={handleLogout}
+                className="w-full px-4 py-2 text-left flex items-center gap-2 text-red-500 hover:bg-red-500/10 transition-colors"
+              >
+                <LogOut size={16} />
+                <span>Sign out</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

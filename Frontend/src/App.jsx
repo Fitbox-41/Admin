@@ -33,28 +33,37 @@ const Placeholder = ({ title }) => (
   </div>
 );
 
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import DeveloperUsers from './pages/DeveloperUsers';
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="products" element={<Products />} />
-          <Route path="orders" element={<Orders />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
           
-          {/* Placeholders for other routes */}
-          <Route path="customers" element={<Placeholder title="Customers" />} />
-          <Route path="payments" element={<Placeholder title="Payments" />} />
-          <Route path="analytics" element={<Placeholder title="Analytics" />} />
-          <Route path="settings" element={<Settings />} />
-          
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="products" element={<Products />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="users" element={<DeveloperUsers />} />
+              
+              {/* Placeholders for other routes */}
+              <Route path="customers" element={<Placeholder title="Customers" />} />
+              <Route path="payments" element={<Placeholder title="Payments" />} />
+              <Route path="analytics" element={<Placeholder title="Analytics" />} />
+              <Route path="settings" element={<Settings />} />
+              
+              {/* Catch all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

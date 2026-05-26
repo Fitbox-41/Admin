@@ -1,13 +1,38 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { login, user } = useAuth();
+  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Dummy login action for layout purposes
-    window.location.href = '/';
+    setError('');
+    setIsLoading(true);
+    
+    const result = await login(name, password);
+    
+    if (result.success) {
+      navigate('/');
+    } else {
+      setError(result.message || 'Login failed');
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -19,28 +44,43 @@ const Login = () => {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
+          
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Admin Name</label>
             <input 
-              type="email" 
+              type="text" 
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full bg-secondary border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              placeholder="admin@fitbox.com"
+              placeholder="Admin"
             />
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-secondary border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-secondary border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all pr-12"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -48,14 +88,14 @@ const Login = () => {
               <input type="checkbox" className="rounded text-primary focus:ring-primary" />
               <span className="text-sm text-gray-400">Remember me</span>
             </label>
-            <a href="#" className="text-sm text-primary hover:text-primary-light transition-colors">Forgot Password?</a>
           </div>
 
           <button 
             type="submit"
-            className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-all shadow-lg hover:shadow-primary/20"
+            disabled={isLoading}
+            className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-all shadow-lg hover:shadow-primary/20 disabled:opacity-50"
           >
-            Sign In
+            {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
       </div>

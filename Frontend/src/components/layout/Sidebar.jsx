@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
@@ -10,10 +11,19 @@ import {
   BarChart3, 
   Settings,
   LogOut,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Products', path: '/products', icon: <ShoppingBag size={20} /> },
@@ -21,6 +31,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Customers', path: '/customers', icon: <Users size={20} /> },
     { name: 'Payments', path: '/payments', icon: <CreditCard size={20} /> },
     { name: 'Analytics', path: '/analytics', icon: <BarChart3 size={20} /> },
+    { name: 'Admin Users', path: '/users', icon: <Shield size={20} /> },
   ];
 
   return (
@@ -72,6 +83,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <span>Settings</span>
           </NavLink>
           <button
+            onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-400 hover:bg-red-400/10 transition-colors"
           >
             <LogOut size={20} />

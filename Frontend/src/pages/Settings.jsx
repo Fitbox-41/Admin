@@ -1,19 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Moon, Sun, User, Mail, Lock, LogOut, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Moon, Sun, User, Lock, LogOut, Trash2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Settings = () => {
-  const [isDark, setIsDark] = useState(false);
-
-  // Initialize theme from localStorage or system preference
-  useEffect(() => {
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setIsDark(false);
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
 
   const toggleTheme = () => {
     if (isDark) {
@@ -24,6 +17,33 @@ const Settings = () => {
       document.documentElement.classList.add('dark');
       localStorage.theme = 'dark';
       setIsDark(true);
+    }
+  };
+
+  const handleSignOut = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm("WARNING: Are you sure you want to delete your account? This action cannot be undone.")) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5001/api/users/${user._id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          logout();
+          navigate('/login');
+        } else {
+          alert('Failed to delete account');
+        }
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        alert('An error occurred while deleting the account.');
+      }
     }
   };
 
@@ -63,24 +83,9 @@ const Settings = () => {
               </div>
               <div>
                 <p className="font-medium text-text-dark">Name</p>
-                <p className="text-sm text-text-mid">Admin User</p>
+                <p className="text-sm text-text-mid capitalize">{user?.name || 'Admin User'}</p>
               </div>
             </div>
-            <button className="text-primary hover:text-primary-dark font-medium text-sm transition-colors">Edit</button>
-          </div>
-
-          {/* Email */}
-          <div className="flex items-center justify-between border-b border-border pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary">
-                <Mail size={18} />
-              </div>
-              <div>
-                <p className="font-medium text-text-dark">Email Address</p>
-                <p className="text-sm text-text-mid">admin@fitbox.com</p>
-              </div>
-            </div>
-            <button className="text-primary hover:text-primary-dark font-medium text-sm transition-colors">Edit</button>
           </div>
 
           {/* Password */}
@@ -94,17 +99,22 @@ const Settings = () => {
                 <p className="text-sm text-text-mid">••••••••</p>
               </div>
             </div>
-            <button className="text-primary hover:text-primary-dark font-medium text-sm transition-colors">Change</button>
           </div>
         </div>
 
         {/* Danger Zone */}
         <div className="mt-8 pt-4 border-t border-border space-y-4">
-          <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-red-500 font-medium hover:bg-red-500/10 transition-colors border border-red-500/20">
+          <button 
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-red-500 font-medium hover:bg-red-500/10 transition-colors border border-red-500/20"
+          >
             <LogOut size={18} />
             <span>Sign Out</span>
           </button>
-          <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors shadow-sm hover:shadow-red-500/20">
+          <button 
+            onClick={handleDeleteAccount}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors shadow-sm hover:shadow-red-500/20"
+          >
             <Trash2 size={18} />
             <span>Delete Account</span>
           </button>
