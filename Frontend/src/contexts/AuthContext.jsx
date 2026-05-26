@@ -2,6 +2,8 @@ import { createContext, useState, useEffect, useContext } from 'react';
 
 const AuthContext = createContext();
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
@@ -17,7 +19,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await fetch('http://localhost:5001/api/auth/verify', {
+        const response = await fetch(`${API_URL}/auth/verify`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -42,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (name, password) => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

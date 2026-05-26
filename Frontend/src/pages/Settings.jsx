@@ -3,6 +3,8 @@ import { Moon, Sun, User, Lock, LogOut, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
 const Settings = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -29,7 +31,7 @@ const Settings = () => {
     if (window.confirm("WARNING: Are you sure you want to delete your account? This action cannot be undone.")) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:5001/api/users/${user._id}`, {
+        const response = await fetch(`${API_URL}/users/${user._id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
 const DeveloperUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,7 @@ const DeveloperUsers = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/users', {
+      const response = await fetch(`${API_URL}/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -42,8 +44,8 @@ const DeveloperUsers = () => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     const url = editingId 
-      ? `http://localhost:5001/api/users/${editingId}`
-      : 'http://localhost:5001/api/users';
+      ? `${API_URL}/users/${editingId}`
+      : `${API_URL}/users`;
       
     const method = editingId ? 'PUT' : 'POST';
     
@@ -82,7 +84,7 @@ const DeveloperUsers = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/users/${id}`, {
+      const response = await fetch(`${API_URL}/users/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
