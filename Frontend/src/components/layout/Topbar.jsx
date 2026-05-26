@@ -62,7 +62,7 @@ const Topbar = ({ onMenuClick }) => {
             </div>
             <div className="hidden md:block text-sm">
               <p className="font-semibold text-text-dark capitalize">{user?.name || 'Admin User'}</p>
-              <p className="text-text-light text-xs">Super Admin</p>
+              <p className="text-text-light text-xs">Admin</p>
             </div>
           </div>
 

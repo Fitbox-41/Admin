@@ -9,15 +9,6 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-
-// Database connection
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/admin-dashboard';
 
@@ -33,11 +24,19 @@ const connectDB = async () => {
   }
 };
 
+// Middleware
+app.use(cors());
+app.use(express.json());
+
 // Ensure database is connected before handling any requests
 app.use(async (req, res, next) => {
   await connectDB();
   next();
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
 // Start the server locally, but export for serverless (like Vercel)
 if (process.env.NODE_ENV !== 'production') {

@@ -58,6 +58,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <NavLink
               key={item.name}
               to={item.path}
+              onClick={() => setIsOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200 ${
                   isActive 
@@ -77,6 +78,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className="space-y-1">
           <NavLink
             to="/settings"
+            onClick={() => setIsOpen(false)}
             className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-text-light hover:bg-secondary-light hover:text-white transition-colors"
           >
             <Settings size={20} />
