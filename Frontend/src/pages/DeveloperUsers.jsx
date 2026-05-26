@@ -113,7 +113,7 @@ const DeveloperUsers = () => {
           <h2 className="text-xl font-bold font-heading text-text-dark mb-4 border-b border-border pb-2">
             {editingId ? 'Edit User' : 'Add New User'}
           </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             <div>
               <label className="block text-sm font-medium text-text-dark mb-1">Name</label>
               <input 
@@ -121,6 +121,7 @@ const DeveloperUsers = () => {
                 required 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
                 className="w-full bg-bg border border-border rounded-xl px-4 py-2 text-text-dark focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               />
             </div>
@@ -134,6 +135,7 @@ const DeveloperUsers = () => {
                   required={!editingId} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   className="w-full bg-bg border border-border rounded-xl px-4 py-2 text-text-dark focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all pr-12"
                 />
                 <button
