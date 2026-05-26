@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
+import Loader from '../components/common/Loader';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -168,7 +169,7 @@ const DeveloperUsers = () => {
         <div className="lg:col-span-2 glass p-6 rounded-xl">
           <h2 className="text-xl font-bold font-heading text-text-dark mb-4 border-b border-border pb-2">Admin Users</h2>
           {loading ? (
-            <p className="text-text-mid text-sm">Loading users...</p>
+            <Loader />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
