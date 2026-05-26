@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-light: var(--secondary-light);
+  
+  --color-accent: var(--accent);
+  
+  --color-text-dark: var(--text-dark);
+  --color-text-mid: var(--text-mid);
+  --color-text-light: var(--text-light);
+  
+  --color-bg: var(--bg);
+  --color-card-bg: var(--card-bg);
+  --color-border: var(--border);
+}
+
+@layer base {
+  :root {
+    --primary: #ff6b35;
+    --primary-dark: #e5521a;
+    --primary-light: #ff8c5a;
+    --secondary: #1a1a2e;
+    --secondary-light: #16213e;
+    --accent: #f7c59f;
+    --text-dark: #1a1a2e;
+    --text-mid: #4a4a6a;
+    --text-light: #8888aa;
+    --bg: #f9f9fc;
+    --card-bg: #ffffff;
+    --border: #e8e8f0;
+  }
+
+  .dark {
+    --primary: #ff6b35;
+    --primary-dark: #e5521a;
+    --primary-light: #ff8c5a;
+    --secondary: #0f0f13;
+    --secondary-light: #1a1a24;
+    --text-dark: #f9f9fc;
+    --text-mid: #a1a1aa;
+    --text-light: #71717a;
+    --bg: #09090b;
+    --card-bg: #121217;
+    --border: #27272a;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text-dark font-sans;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+/* Glassmorphism utility */
+@layer utilities {
+  .glass {
+    @apply bg-card-bg/70 backdrop-blur-md border border-border shadow-md;
+  }
+  .glass-dark {
+    @apply bg-secondary/80 backdrop-blur-md border border-white/10 shadow-lg text-white;
+  }
+}
