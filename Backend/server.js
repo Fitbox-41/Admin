@@ -21,9 +21,23 @@ app.use('/api/users', userRoutes);
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/admin-dashboard';
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((error) => console.error('Error connecting to MongoDB:', error.message));
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    await mongoose.connect(MONGO_URI);
+    isConnected = true;
+    console.log('Connected to MongoDB');
+  } catch (error) {
+    console.error('Error connecting to MongoDB:', error.message);
+  }
+};
+
+// Ensure database is connected before handling any requests
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // Start the server locally, but export for serverless (like Vercel)
 if (process.env.NODE_ENV !== 'production') {
