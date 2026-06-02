@@ -1,0 +1,21 @@
+
+---Downloaded files---
+The import files for: Home v13 Elementor - Page were successfully downloaded!
+Initial max execution time = 30
+Files info:
+Site URL = http://shop.fitboxsports.com
+Data file = /home/espeed/sites/shop-fitbox/current/public/wp-content/themes/electro/assets/dummy-data/home-v13/el-dummy-data.xml
+Widget file = not defined!
+Customizer file = not defined!
+Redux files:
+electro_options -> /home/espeed/sites/shop-fitbox/current/public/wp-content/themes/electro/assets/dummy-data/home-v13/redux-options.json 
+
+
+---ocdi/before_widgets_import---
+
+
+---Importing Redux settings---
+Redux settings import for: electro_options finished successfully!
+
+---ocdi/after_import---
+

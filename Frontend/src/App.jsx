@@ -36,6 +36,7 @@ const Placeholder = ({ title }) => (
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import DeveloperUsers from './pages/DeveloperUsers';
+import Customers from './pages/Customers';
 
 function App() {
   return (
@@ -52,7 +53,7 @@ function App() {
               <Route path="users" element={<DeveloperUsers />} />
               
               {/* Placeholders for other routes */}
-              <Route path="customers" element={<Placeholder title="Customers" />} />
+              <Route path="customers" element={<Customers />} />
               <Route path="payments" element={<Placeholder title="Payments" />} />
               <Route path="analytics" element={<Placeholder title="Analytics" />} />
               <Route path="settings" element={<Settings />} />

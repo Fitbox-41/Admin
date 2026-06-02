@@ -1,0 +1,17 @@
+
+---Downloaded files---
+The import files for: Home v13 Elementor - Template were successfully downloaded!
+Initial max execution time = 30
+Files info:
+Site URL = http://shop.fitboxsports.com
+Data file = /home/espeed/sites/shop-fitbox/current/public/wp-content/themes/electro/assets/dummy-data/home-v13/el-template.xml
+Widget file = not defined!
+Customizer file = not defined!
+Redux files:
+not defined!
+
+---ocdi/before_widgets_import---
+
+
+---ocdi/after_import---
+

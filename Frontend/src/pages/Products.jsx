@@ -1,12 +1,115 @@
-import { Plus, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Filter, CheckSquare, Square, MoreVertical, Loader2, Search } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const Products = () => {
-  const products = [
-    { id: 1, name: 'Premium Yoga Mat', category: 'Accessories', price: '₹45.00', stock: 120, status: 'In Stock' },
-    { id: 2, name: 'Adjustable Dumbbells', category: 'Weights', price: '₹199.99', stock: 15, status: 'Low Stock' },
-    { id: 3, name: 'Resistance Bands Set', category: 'Accessories', price: '₹29.99', stock: 0, status: 'Out of Stock' },
-    { id: 4, name: 'Kettlebell 16kg', category: 'Weights', price: '₹55.00', stock: 45, status: 'In Stock' },
-  ];
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkAction, setBulkAction] = useState('');
+  const [updating, setUpdating] = useState(false);
+  
+  // Search and Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_URL}/products`);
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(products.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleBulkAction = async () => {
+    if (!bulkAction || selectedIds.length === 0) return;
+    
+    let isOutOfStock = undefined;
+    let isNew = undefined;
+
+    if (bulkAction === 'out_of_stock') isOutOfStock = true;
+    if (bulkAction === 'in_stock') isOutOfStock = false;
+    if (bulkAction === 'new_arrival') isNew = true;
+    if (bulkAction === 'remove_new') isNew = false;
+
+    try {
+      setUpdating(true);
+      const res = await fetch(`${API_URL}/products/bulk-status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: selectedIds, isOutOfStock, isNew })
+      });
+      if (res.ok) {
+        await fetchProducts();
+        setSelectedIds([]);
+        setBulkAction('');
+      }
+    } catch (error) {
+      console.error('Bulk update failed:', error);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleIndividualStatus = async (id, statusType, value) => {
+    try {
+      const updateData = {};
+      if (statusType === 'stock') updateData.isOutOfStock = value;
+      if (statusType === 'new') updateData.isNew = value;
+
+      const res = await fetch(`${API_URL}/products/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+      if (res.ok) {
+        await fetchProducts();
+      }
+    } catch (error) {
+      console.error('Update failed:', error);
+    }
+  };
+
+  // Filtered Products Logic
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          p.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesStatus = true;
+    if (statusFilter === 'in_stock') matchesStatus = !p.isOutOfStock;
+    if (statusFilter === 'out_of_stock') matchesStatus = p.isOutOfStock;
+    if (statusFilter === 'new_arrival') matchesStatus = p.isNew;
+    
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-6">
@@ -15,50 +118,152 @@ const Products = () => {
       </div>
 
       <div className="glass rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-border flex justify-between items-center">
+        <div className="p-4 border-b border-border flex justify-between items-center bg-bg/30">
+          <div className="flex gap-4 items-center">
+            {selectedIds.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-text-mid">{selectedIds.length} selected</span>
+                <select 
+                  className="px-3 py-2 border border-border rounded-lg text-sm bg-bg outline-none"
+                  value={bulkAction}
+                  onChange={(e) => setBulkAction(e.target.value)}
+                >
+                  <option value="">Bulk Actions</option>
+                  <option value="out_of_stock">Mark Out of Stock</option>
+                  <option value="in_stock">Mark In Stock</option>
+                  <option value="new_arrival">Mark New Arrival</option>
+                  <option value="remove_new">Remove New Arrival</option>
+                </select>
+                <button 
+                  onClick={handleBulkAction}
+                  disabled={!bulkAction || updating}
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {updating ? <Loader2 className="animate-spin w-4 h-4" /> : 'Apply'}
+                </button>
+              </div>
+            )}
+            
+            {!selectedIds.length && (
+              <div className="relative flex-1 min-w-[250px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="Search products..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-bg outline-none focus:border-primary transition-colors text-sm"
+                />
+              </div>
+            )}
+          </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-bg flex items-center gap-2">
-              <Filter size={16} /> Filters
-            </button>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors"
+            >
+              <option value="">All Statuses</option>
+              <option value="in_stock">In Stock</option>
+              <option value="out_of_stock">Out of Stock</option>
+              <option value="new_arrival">New Arrivals</option>
+            </select>
           </div>
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-bg text-text-mid text-sm uppercase tracking-wider">
-                <th className="px-6 py-4 font-medium">Product Name</th>
-                <th className="px-6 py-4 font-medium">Category</th>
-                <th className="px-6 py-4 font-medium">Price</th>
-                <th className="px-6 py-4 font-medium">Stock</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {products.map((product) => (
-                <tr key={product.id} className="hover:bg-bg/50 transition-colors">
-                  <td className="px-6 py-4 font-medium">{product.name}</td>
-                  <td className="px-6 py-4 text-text-mid">{product.category}</td>
-                  <td className="px-6 py-4 font-medium">{product.price}</td>
-                  <td className="px-6 py-4 text-text-mid">{product.stock}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      product.status === 'In Stock' ? 'bg-green-100 text-green-700' : 
-                      product.status === 'Low Stock' ? 'bg-yellow-100 text-yellow-700' : 
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {product.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-primary hover:text-primary-dark font-medium mr-3">Edit</button>
-                    <button className="text-red-500 hover:text-red-700 font-medium">Delete</button>
-                  </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-20 text-text-mid">
+              <Loader2 className="animate-spin w-8 h-8" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-bg text-text-mid text-sm uppercase tracking-wider">
+                  <th className="px-4 py-4 w-12 text-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-border"
+                      checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
+                  <th className="px-6 py-4 font-medium">Product Name</th>
+                  <th className="px-6 py-4 font-medium">Price</th>
+                  <th className="px-6 py-4 font-medium">Stock Status</th>
+                  <th className="px-6 py-4 font-medium">Badge</th>
+                  <th className="px-6 py-4 font-medium text-right">Quick Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className={`hover:bg-bg/50 transition-colors ${selectedIds.includes(product.id) ? 'bg-primary/5' : ''}`}>
+                    <td className="px-4 py-4 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border"
+                        checked={selectedIds.includes(product.id)}
+                        onChange={() => handleSelectOne(product.id)}
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-bg overflow-hidden flex items-center justify-center">
+                          {product.imgSrc || (product.variants && product.variants[0]?.images[0]) ? (
+                            <img src={product.imgSrc || product.variants[0].images[0]} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs text-text-mid">No img</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-text-dark">{product.name}</div>
+                          <div className="text-xs text-text-mid">{product.category}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-medium">₹{product.price}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        product.isOutOfStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      }`}>
+                        {product.isOutOfStock ? 'Out of Stock' : 'In Stock'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {product.isNew && (
+                        <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold leading-none bg-orange-100 text-orange-700">
+                          New Arrival
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => handleIndividualStatus(product.id, 'stock', !product.isOutOfStock)}
+                          className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-bg"
+                        >
+                          {product.isOutOfStock ? 'Mark In Stock' : 'Mark Out of Stock'}
+                        </button>
+                        <button 
+                          onClick={() => handleIndividualStatus(product.id, 'new', !product.isNew)}
+                          className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-bg"
+                        >
+                          {product.isNew ? 'Remove New' : 'Mark New'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-text-mid">
+                      No products found matching your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
