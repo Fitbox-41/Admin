@@ -243,6 +243,14 @@ const Orders = () => {
                                       <span className="text-text-dark font-mono text-xs">{order.paymentId}</span>
                                     </div>
                                   )}
+                                  {order.invoiceUrl && (
+                                    <div>
+                                      <span className="text-text-mid">Invoice:</span>{' '}
+                                      <a href={order.invoiceUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium text-xs">
+                                        Download Invoice
+                                      </a>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>

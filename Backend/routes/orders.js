@@ -52,4 +52,120 @@ router.put('/:id/status', async (req, res) => {
   }
 });
 
+// GET /api/orders/export
+router.get('/export', async (req, res) => {
+  try {
+    const timeRange = req.query.timeRange || 'last-month';
+    
+    // Calculate date filter based on timeRange
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (timeRange) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'last-week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'last-month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'last-3-months':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case 'last-6-months':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case 'last-year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'last-5-years':
+        startDate.setFullYear(now.getFullYear() - 5);
+        break;
+      default:
+        startDate.setMonth(now.getMonth() - 1);
+    }
+
+    const orders = await Order.find({ createdAt: { $gte: startDate } }).sort({ createdAt: -1 });
+    
+    // Dynamically import exceljs to avoid issues if not used everywhere
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Analytics');
+
+    worksheet.columns = [
+      { header: 'Customer Name', key: 'customerName', width: 25 },
+      { header: 'New Customer', key: 'newCustomer', width: 15 },
+      { header: 'Orders Placed', key: 'items', width: 50 },
+      { header: 'Order Total (Rs)', key: 'totalAmount', width: 15 },
+      { header: 'Order Status', key: 'orderStatus', width: 20 },
+      { header: 'Date', key: 'date', width: 15 }
+    ];
+
+    let grandTotal = 0;
+
+    for (const order of orders) {
+      // Check if new customer (first order in db for this user)
+      let isNewCustomer = false;
+      if (order.userId) {
+        const firstOrder = await Order.findOne({ userId: order.userId }).sort({ createdAt: 1 });
+        isNewCustomer = firstOrder && firstOrder._id.toString() === order._id.toString();
+      }
+
+      const itemNames = order.items ? order.items.map(i => `• ${i.name} (x${i.quantity})`).join('\n') : '';
+      const orderStatus = order.orderStatus || (order.paymentStatus === 'Paid' ? 'Completed' : order.paymentStatus === 'Failed' ? 'Cancelled' : 'Pending');
+
+      const row = worksheet.addRow({
+        customerName: order.customerName || 'Guest',
+        newCustomer: isNewCustomer ? 'Yes' : 'No',
+        items: itemNames,
+        totalAmount: order.totalAmount,
+        orderStatus: orderStatus,
+        date: order.createdAt.toLocaleDateString()
+      });
+
+      // Enable text wrapping for the items column to show bullet points nicely
+      row.getCell('items').alignment = { wrapText: true, vertical: 'top' };
+
+      // Highlight new customers (light blue background)
+      if (isNewCustomer) {
+        row.getCell('customerName').fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFADD8E6' } 
+        };
+      }
+
+      // Color code order status
+      const statusCell = row.getCell('orderStatus');
+      if (orderStatus === 'Completed') {
+        statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF90EE90' } }; // Light Green
+      } else if (orderStatus === 'Cancelled') {
+        statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFB6C1' } }; // Light Red
+      } else {
+        statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } }; // Light Yellow
+      }
+
+      grandTotal += (order.totalAmount || 0);
+    }
+
+    // Add Total Row
+    worksheet.addRow([]);
+    const totalRow = worksheet.addRow({
+      items: 'GRAND TOTAL',
+      totalAmount: grandTotal
+    });
+    totalRow.font = { bold: true };
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=analytics_${timeRange}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 export default router;

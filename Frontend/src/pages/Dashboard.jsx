@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { IndianRupee, ShoppingBag, Users, Package } from 'lucide-react';
+import { IndianRupee, ShoppingBag, Users, Package, Download } from 'lucide-react';
 
 const mockData = {
   today: {
@@ -131,24 +131,39 @@ const Dashboard = () => {
 
   const currentData = mockData[timeRange];
 
+  const handleDownloadExcel = () => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+    window.open(`${API_URL}/orders/export?timeRange=${timeRange}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <h1 className="text-2xl md:text-3xl font-bold font-heading text-text-dark">Dashboard Overview</h1>
         
-        <select 
-          value={timeRange}
-          onChange={(e) => setTimeRange(e.target.value)}
-          className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
-        >
-          <option value="today">Today</option>
-          <option value="last-week">Last Week</option>
-          <option value="last-month">Last Month</option>
-          <option value="last-3-months">Last 3 Months</option>
-          <option value="last-6-months">Last 6 Months</option>
-          <option value="last-year">Last 1 Year</option>
-          <option value="last-5-years">Last 5 Years</option>
-        </select>
+        <div className="flex gap-4 items-center">
+          <select 
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="bg-white border border-gray-200 text-gray-700 py-2 px-4 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+          >
+            <option value="today">Today</option>
+            <option value="last-week">Last Week</option>
+            <option value="last-month">Last Month</option>
+            <option value="last-3-months">Last 3 Months</option>
+            <option value="last-6-months">Last 6 Months</option>
+            <option value="last-year">Last 1 Year</option>
+            <option value="last-5-years">Last 5 Years</option>
+          </select>
+
+          <button 
+            onClick={handleDownloadExcel}
+            className="flex items-center gap-2 bg-primary text-white py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark transition-all"
+          >
+            <Download size={18} />
+            <span className="hidden sm:inline">Export Analytics</span>
+          </button>
+        </div>
       </div>
       
       {/* Stat Cards */}
