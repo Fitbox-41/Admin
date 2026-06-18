@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Filter, CheckSquare, Square, MoreVertical, Loader2, Search } from 'lucide-react';
+import { Plus, Filter, CheckSquare, Square, MoreVertical, Loader2, Search, Tag } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -13,6 +13,7 @@ const Products = () => {
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
 
   const fetchProducts = async () => {
     try {
@@ -33,9 +34,12 @@ const Products = () => {
     fetchProducts();
   }, []);
 
+  // Derive unique categories
+  const categories = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
+
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(products.map(p => p.id));
+      setSelectedIds(filteredProducts.map(p => p.id));
     } else {
       setSelectedIds([]);
     }
@@ -107,15 +111,133 @@ const Products = () => {
     if (statusFilter === 'in_stock') matchesStatus = !p.isOutOfStock;
     if (statusFilter === 'out_of_stock') matchesStatus = p.isOutOfStock;
     if (statusFilter === 'new_arrival') matchesStatus = p.isNew;
+
+    const matchesCategory = categoryFilter === 'All' || p.category === categoryFilter;
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
+
+  // Group filtered products by category (only when "All" is selected)
+  const groupedProducts = categoryFilter === 'All'
+    ? categories.slice(1).reduce((acc, cat) => {
+        const items = filteredProducts.filter(p => p.category === cat);
+        if (items.length > 0) acc[cat] = items;
+        return acc;
+      }, {})
+    : null;
+
+  const ProductRow = ({ product }) => (
+    <tr className={`hover:bg-bg/50 transition-colors ${selectedIds.includes(product.id) ? 'bg-primary/5' : ''}`}>
+      <td className="px-4 py-4 text-center">
+        <input 
+          type="checkbox" 
+          className="rounded border-border"
+          checked={selectedIds.includes(product.id)}
+          onChange={() => handleSelectOne(product.id)}
+        />
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded bg-bg overflow-hidden flex items-center justify-center">
+            {product.imgSrc || (product.variants && product.variants[0]?.images[0]) ? (
+              <img src={product.imgSrc || product.variants[0].images[0]} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs text-text-mid">No img</span>
+            )}
+          </div>
+          <div>
+            <div className="font-medium text-text-dark">{product.name}</div>
+            <div className="text-xs text-text-mid">{product.category}</div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4 font-medium">₹{product.price}</td>
+      <td className="px-6 py-4">
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          product.isOutOfStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+        }`}>
+          {product.isOutOfStock ? 'Out of Stock' : 'In Stock'}
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        {product.isNew && (
+          <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold leading-none bg-orange-100 text-orange-700">
+            New Arrival
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 text-right">
+        <div className="flex items-center justify-end gap-2">
+          <button 
+            onClick={() => handleIndividualStatus(product.id, 'stock', !product.isOutOfStock)}
+            className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-bg"
+          >
+            {product.isOutOfStock ? 'Mark In Stock' : 'Mark Out of Stock'}
+          </button>
+          <button 
+            onClick={() => handleIndividualStatus(product.id, 'new', !product.isNew)}
+            className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-bg"
+          >
+            {product.isNew ? 'Remove New' : 'Mark New'}
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+
+  const TableHeader = () => (
+    <thead>
+      <tr className="bg-bg text-text-mid text-sm uppercase tracking-wider">
+        <th className="px-4 py-4 w-12 text-center">
+          <input 
+            type="checkbox" 
+            className="rounded border-border"
+            checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+            onChange={handleSelectAll}
+          />
+        </th>
+        <th className="px-6 py-4 font-medium">Product Name</th>
+        <th className="px-6 py-4 font-medium">Price</th>
+        <th className="px-6 py-4 font-medium">Stock Status</th>
+        <th className="px-6 py-4 font-medium">Badge</th>
+        <th className="px-6 py-4 font-medium text-right">Quick Actions</th>
+      </tr>
+    </thead>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-3xl font-bold font-heading text-text-dark">Products</h1>
       </div>
+
+      {/* Category Tabs */}
+      {!loading && (
+        <div className="flex gap-2 flex-wrap">
+          {categories.map(cat => {
+            const count = cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
+            return (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 ${
+                  categoryFilter === cat
+                    ? 'bg-primary text-white border-primary shadow-sm'
+                    : 'bg-bg text-text-mid border-border hover:border-primary hover:text-primary'
+                }`}
+              >
+                {cat !== 'All' && <Tag size={12} />}
+                {cat}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  categoryFilter === cat ? 'bg-white/20 text-white' : 'bg-border text-text-mid'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="glass rounded-xl overflow-hidden">
         <div className="p-4 border-b border-border flex justify-between items-center bg-bg/30">
@@ -176,83 +298,35 @@ const Products = () => {
             <div className="flex justify-center items-center py-20 text-text-mid">
               <Loader2 className="animate-spin w-8 h-8" />
             </div>
+          ) : categoryFilter === 'All' && groupedProducts ? (
+            /* Grouped by category view */
+            Object.keys(groupedProducts).length === 0 ? (
+              <div className="px-6 py-8 text-center text-text-mid">No products found matching your filters.</div>
+            ) : (
+              Object.entries(groupedProducts).map(([cat, items]) => (
+                <div key={cat}>
+                  {/* Category Section Header */}
+                  <div className="flex items-center gap-3 px-6 py-3 bg-bg/50 border-b border-border sticky top-0 z-10">
+                    <Tag size={14} className="text-primary" />
+                    <span className="text-sm font-bold text-text-dark uppercase tracking-wider">{cat}</span>
+                    <span className="text-xs text-text-mid bg-border px-2 py-0.5 rounded-full">{items.length} products</span>
+                  </div>
+                  <table className="w-full text-left border-collapse">
+                    <TableHeader />
+                    <tbody className="divide-y divide-border">
+                      {items.map(product => <ProductRow key={product.id} product={product} />)}
+                    </tbody>
+                  </table>
+                </div>
+              ))
+            )
           ) : (
+            /* Single category / filtered view */
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-bg text-text-mid text-sm uppercase tracking-wider">
-                  <th className="px-4 py-4 w-12 text-center">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-border"
-                      checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                  <th className="px-6 py-4 font-medium">Product Name</th>
-                  <th className="px-6 py-4 font-medium">Price</th>
-                  <th className="px-6 py-4 font-medium">Stock Status</th>
-                  <th className="px-6 py-4 font-medium">Badge</th>
-                  <th className="px-6 py-4 font-medium text-right">Quick Actions</th>
-                </tr>
-              </thead>
+              <TableHeader />
               <tbody className="divide-y divide-border">
                 {filteredProducts.map((product) => (
-                  <tr key={product.id} className={`hover:bg-bg/50 transition-colors ${selectedIds.includes(product.id) ? 'bg-primary/5' : ''}`}>
-                    <td className="px-4 py-4 text-center">
-                      <input 
-                        type="checkbox" 
-                        className="rounded border-border"
-                        checked={selectedIds.includes(product.id)}
-                        onChange={() => handleSelectOne(product.id)}
-                      />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-bg overflow-hidden flex items-center justify-center">
-                          {product.imgSrc || (product.variants && product.variants[0]?.images[0]) ? (
-                            <img src={product.imgSrc || product.variants[0].images[0]} alt={product.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xs text-text-mid">No img</span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-text-dark">{product.name}</div>
-                          <div className="text-xs text-text-mid">{product.category}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium">₹{product.price}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        product.isOutOfStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                      }`}>
-                        {product.isOutOfStock ? 'Out of Stock' : 'In Stock'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {product.isNew && (
-                        <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold leading-none bg-orange-100 text-orange-700">
-                          New Arrival
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleIndividualStatus(product.id, 'stock', !product.isOutOfStock)}
-                          className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-bg"
-                        >
-                          {product.isOutOfStock ? 'Mark In Stock' : 'Mark Out of Stock'}
-                        </button>
-                        <button 
-                          onClick={() => handleIndividualStatus(product.id, 'new', !product.isNew)}
-                          className="px-3 py-1.5 border border-border rounded-lg text-xs font-medium hover:bg-bg"
-                        >
-                          {product.isNew ? 'Remove New' : 'Mark New'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <ProductRow key={product.id} product={product} />
                 ))}
                 {filteredProducts.length === 0 && (
                   <tr>
