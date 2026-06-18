@@ -153,7 +153,7 @@ const Products = () => {
       </td>
       <td className="px-6 py-4 font-medium">₹{product.price}</td>
       <td className="px-6 py-4">
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${
           product.isOutOfStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
         }`}>
           {product.isOutOfStock ? 'Out of Stock' : 'In Stock'}
@@ -240,13 +240,13 @@ const Products = () => {
       )}
 
       <div className="glass rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-border flex justify-between items-center bg-bg/30">
-          <div className="flex gap-4 items-center">
+        <div className="p-4 border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-bg/30">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full md:w-auto">
             {selectedIds.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-text-mid">{selectedIds.length} selected</span>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <span className="text-sm font-medium text-text-mid whitespace-nowrap">{selectedIds.length} selected</span>
                 <select 
-                  className="px-3 py-2 border border-border rounded-lg text-sm bg-bg outline-none"
+                  className="px-3 py-2 border border-border rounded-lg text-sm bg-bg outline-none flex-1 min-w-[120px]"
                   value={bulkAction}
                   onChange={(e) => setBulkAction(e.target.value)}
                 >
@@ -259,7 +259,7 @@ const Products = () => {
                 <button 
                   onClick={handleBulkAction}
                   disabled={!bulkAction || updating}
-                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
                 >
                   {updating ? <Loader2 className="animate-spin w-4 h-4" /> : 'Apply'}
                 </button>
@@ -267,7 +267,7 @@ const Products = () => {
             )}
             
             {!selectedIds.length && (
-              <div className="relative flex-1 min-w-[250px]">
+              <div className="relative flex-1 min-w-[200px] w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid" size={18} />
                 <input 
                   type="text" 
@@ -279,11 +279,11 @@ const Products = () => {
               </div>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full md:w-auto">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors"
+              className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors w-full md:w-auto"
             >
               <option value="">All Statuses</option>
               <option value="in_stock">In Stock</option>
@@ -311,7 +311,7 @@ const Products = () => {
                     <span className="text-sm font-bold text-text-dark uppercase tracking-wider">{cat}</span>
                     <span className="text-xs text-text-mid bg-border px-2 py-0.5 rounded-full">{items.length} products</span>
                   </div>
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
                     <TableHeader />
                     <tbody className="divide-y divide-border">
                       {items.map(product => <ProductRow key={product.id} product={product} />)}
@@ -322,7 +322,7 @@ const Products = () => {
             )
           ) : (
             /* Single category / filtered view */
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <TableHeader />
               <tbody className="divide-y divide-border">
                 {filteredProducts.map((product) => (

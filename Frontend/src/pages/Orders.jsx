@@ -149,8 +149,8 @@ const Orders = () => {
         </div>
 
         <div className="glass rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-border flex justify-between items-center bg-bg/30 flex-wrap gap-4">
-            <div className="relative flex-1 min-w-[250px] max-w-md">
+          <div className="p-4 border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center bg-bg/30 gap-4">
+            <div className="relative flex-1 min-w-full md:min-w-[250px] max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid" size={18} />
               <input 
                 type="text" 
@@ -160,11 +160,11 @@ const Orders = () => {
                 className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-bg outline-none focus:border-primary transition-colors text-sm"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors"
+                className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors flex-1"
               >
                 <option value="">All Statuses</option>
                 <option value="Pending">Pending</option>
@@ -174,7 +174,7 @@ const Orders = () => {
               <select
                 value={paymentFilter}
                 onChange={(e) => setPaymentFilter(e.target.value)}
-                className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors"
+                className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors flex-1"
               >
                 <option value="">All Payments</option>
                 <option value="Online">Online</option>
@@ -189,7 +189,7 @@ const Orders = () => {
                 <Loader2 className="animate-spin w-8 h-8" />
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
                   <tr className="bg-bg text-text-mid text-sm uppercase tracking-wider">
                     <th className="px-6 py-4 font-medium">Order ID</th>
@@ -231,12 +231,12 @@ const Orders = () => {
                           </td>
                           <td className="px-6 py-4 font-medium">₹{order.totalAmount}</td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentModeColor(paymentMode)}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getPaymentModeColor(paymentMode)}`}>
                               {paymentMode}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getOrderStatusColor(orderStatus)}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getOrderStatusColor(orderStatus)}`}>
                               {orderStatus}
                             </span>
                           </td>
