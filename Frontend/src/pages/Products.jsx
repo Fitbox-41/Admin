@@ -223,7 +223,7 @@ const Products = () => {
               <div className="text-text-dark font-medium">₹{product.price}</div>
               {product.oldPrice && <div className="text-xs text-text-mid line-through">₹{product.oldPrice}</div>}
             </div>
-            <button onClick={() => handleEditPriceClick(product)} className="opacity-0 group-hover:opacity-100 p-1.5 text-text-mid hover:text-primary transition-opacity bg-bg rounded">
+            <button onClick={() => handleEditPriceClick(product)} className="p-1.5 text-text-mid hover:text-primary transition-colors bg-bg rounded shadow-sm border border-border/50">
               <Edit2 size={14} />
             </button>
           </div>
