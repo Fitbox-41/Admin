@@ -10,7 +10,8 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [activeTab, setActiveTab] = useState('Processing');
+  const [subTab, setSubTab] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [expandedOrder, setExpandedOrder] = useState(null);
   const prevOrderIds = useRef(new Set());
@@ -90,17 +91,80 @@ const Orders = () => {
     }
   };
 
+  const getPaymentStatusColor = (status) => {
+    switch(status) {
+      case 'Paid': return 'bg-green-100 text-green-700';
+      case 'Failed': return 'bg-red-100 text-red-700';
+      case 'Pending Payment': return 'bg-yellow-100 text-yellow-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getShipmentStatusColor = (status) => {
+    switch(status) {
+      case 'Delivered': return 'bg-green-100 text-green-700';
+      case 'Out for Delivery': return 'bg-teal-100 text-teal-700';
+      case 'Shipped': return 'bg-blue-100 text-blue-700';
+      case 'Created': return 'bg-indigo-100 text-indigo-700';
+      case 'Cancelled': return 'bg-red-100 text-red-700';
+      case 'Pending': return 'bg-yellow-100 text-yellow-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getShipmentStatusLabel = (status) => {
+    switch(status) {
+      case 'Pending': return 'Unfulfilled';
+      case 'Created': return 'Label Created';
+      default: return status;
+    }
+  };
+
   const filteredOrders = orders.filter(o => {
     const matchesSearch = 
       o._id.toLowerCase().includes(searchTerm.toLowerCase()) || 
       (o.customerName && o.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (o.customerEmail && o.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const orderStatus = o.orderStatus || (o.paymentStatus === 'Paid' ? 'Completed' : o.paymentStatus === 'Failed' ? 'Cancelled' : 'Pending');
-    const matchesStatus = statusFilter ? orderStatus === statusFilter : true;
-    const matchesPayment = paymentFilter ? (o.paymentMode || 'Online') === paymentFilter : true;
+    const orderStatus = o.orderStatus || 'Pending';
+    const paymentMode = o.paymentMode || 'Online';
+    const shipmentStatus = o.shipmentStatus || 'Pending';
+    const paymentStatus = o.paymentStatus || 'Pending Payment';
     
-    return matchesSearch && matchesStatus && matchesPayment;
+    let matchesTab = false;
+    
+    const isDelivered = shipmentStatus === 'Delivered';
+    const isCancelled = orderStatus === 'Cancelled' || shipmentStatus === 'Cancelled' || paymentStatus === 'Failed';
+    const isCompleted = isDelivered;
+
+    if (activeTab === 'Completed') {
+      matchesTab = isCompleted && !isCancelled;
+    } else if (activeTab === 'Cancelled') {
+      matchesTab = isCancelled;
+    } else if (activeTab === 'Processing') {
+      matchesTab = !isCompleted && !isCancelled;
+      if (matchesTab) {
+        if (subTab === 'All') {
+           matchesTab = true;
+        } else if (subTab === 'Payment Pending') {
+           matchesTab = paymentStatus === 'Pending Payment';
+        } else if (subTab === 'Unfulfilled') {
+           matchesTab = (paymentStatus === 'Paid' || paymentMode === 'COD') && shipmentStatus === 'Pending';
+        } else if (subTab === 'Ready to Ship') {
+           matchesTab = (paymentStatus === 'Paid' || paymentMode === 'COD') && shipmentStatus === 'Created';
+        } else if (subTab === 'Shipped') {
+           matchesTab = shipmentStatus === 'Shipped';
+        } else if (subTab === 'Out for Delivery') {
+           matchesTab = shipmentStatus === 'Out for Delivery';
+        } else {
+           matchesTab = false;
+        }
+      }
+    }
+
+    const matchesPayment = paymentFilter ? paymentMode === paymentFilter : true;
+    
+    return matchesSearch && matchesTab && matchesPayment;
   });
 
   return (
@@ -109,7 +173,7 @@ const Orders = () => {
       <style>{`
         @keyframes newOrderPulse {
           0%   { background-color: transparent; }
-          40%  { background-color: rgba(var(--color-primary-rgb, 99,102,241), 0.10); }
+          40%  { background-color: rgba(255, 107, 53, 0.08); }
           100% { background-color: transparent; }
         }
         .new-order-row {
@@ -123,9 +187,8 @@ const Orders = () => {
           top: 0;
           bottom: 0;
           width: 3px;
-          background: var(--color-primary, #6366f1);
+          background: #ff6b35;
           border-radius: 0 2px 2px 0;
-          animation: newOrderPulse 2s ease-in-out infinite;
         }
         @keyframes newBadgePop {
           0%   { transform: scale(0.85); opacity: 0.7; }
@@ -148,6 +211,59 @@ const Orders = () => {
           )}
         </div>
 
+        {/* Top-Level Tabs */}
+        <div style={{ borderBottom: '1.5px solid #e5e7eb', marginBottom: '8px' }} className="flex">
+          {['Processing', 'Completed', 'Cancelled'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: '14px 24px',
+                fontSize: '14px',
+                fontWeight: 600,
+                borderBottom: activeTab === tab ? '2.5px solid var(--primary)' : '2.5px solid transparent',
+                color: activeTab === tab ? 'var(--primary)' : '#6b7280',
+                background: 'none',
+                cursor: 'pointer',
+                transition: 'color 0.2s',
+                outline: 'none',
+                marginBottom: '-1.5px',
+              }}
+              onMouseEnter={undefined}
+              onMouseLeave={undefined}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Processing Sub-Tabs */}
+        {activeTab === 'Processing' && (
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', padding: '8px 0 4px' }}>
+            {['All', 'Payment Pending', 'Unfulfilled', 'Ready to Ship', 'Shipped', 'Out for Delivery'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSubTab(tab)}
+                style={{
+                  padding: '7px 20px',
+                  borderRadius: '999px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  border: subTab === tab ? '1.5px solid var(--primary)' : '1.5px solid #e5e7eb',
+                  background: subTab === tab ? 'var(--primary)' : '#ffffff',
+                  color: subTab === tab ? '#ffffff' : '#374151',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  outline: 'none',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="glass rounded-xl overflow-hidden">
           <div className="p-4 border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center bg-bg/30 gap-4">
             <div className="relative flex-1 min-w-full md:min-w-[250px] max-w-md">
@@ -161,16 +277,6 @@ const Orders = () => {
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-border rounded-lg text-sm bg-bg outline-none focus:border-primary transition-colors flex-1"
-              >
-                <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
               <select
                 value={paymentFilter}
                 onChange={(e) => setPaymentFilter(e.target.value)}
@@ -196,8 +302,9 @@ const Orders = () => {
                     <th className="px-6 py-4 font-medium">Customer</th>
                     <th className="px-6 py-4 font-medium">Date</th>
                     <th className="px-6 py-4 font-medium">Total</th>
-                    <th className="px-6 py-4 font-medium">Payment</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium">Payment Method</th>
+                    <th className="px-6 py-4 font-medium">Payment Status</th>
+                    <th className="px-6 py-4 font-medium">Delivery Status</th>
                     <th className="px-6 py-4 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -236,8 +343,13 @@ const Orders = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getOrderStatusColor(orderStatus)}`}>
-                              {orderStatus}
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getPaymentStatusColor(order.paymentStatus || 'Pending Payment')}`}>
+                              {order.paymentStatus || 'Pending Payment'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getShipmentStatusColor(order.shipmentStatus || 'Pending')}`}>
+                              {getShipmentStatusLabel(order.shipmentStatus || 'Pending')}
                             </span>
                           </td>
                           {/* Actions column — always visible */}
@@ -283,7 +395,7 @@ const Orders = () => {
                         </tr>
                         {isExpanded && (
                           <tr key={`${order._id}-details`}>
-                            <td colSpan="7" className="px-6 py-4 bg-bg/20">
+                            <td colSpan="8" className="px-6 py-4 bg-bg/20">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Order Items */}
                                 <div className="bg-white rounded-lg p-4 border border-border">
@@ -331,9 +443,10 @@ const Orders = () => {
                                         onChange={(e) => handleStatusChange(order._id, e.target.value)}
                                         className="px-2 py-1 rounded-lg text-xs font-medium border border-border bg-bg outline-none cursor-pointer"
                                       >
-                                        <option value="Pending">Pending</option>
-                                        <option value="Created">Created</option>
+                                        <option value="Pending">Unfulfilled</option>
+                                        <option value="Created">Label Created</option>
                                         <option value="Shipped">Shipped</option>
+                                        <option value="Out for Delivery">Out for Delivery</option>
                                         <option value="Delivered">Delivered</option>
                                         <option value="Cancelled">Cancelled</option>
                                       </select>
@@ -361,7 +474,7 @@ const Orders = () => {
                   })}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="px-6 py-8 text-center text-text-mid">
+                      <td colSpan="8" className="px-6 py-8 text-center text-text-mid">
                         No orders found.
                       </td>
                     </tr>

@@ -291,24 +291,40 @@ const Products = () => {
 
       {/* Category Tabs */}
       {!loading && (
-        <div className="flex gap-2 flex-wrap">
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {categories.map(cat => {
             const count = cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
+            const isActive = categoryFilter === cat;
             return (
               <button
                 key={cat}
                 onClick={() => setCategoryFilter(cat)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 ${
-                  categoryFilter === cat
-                    ? 'bg-primary text-white border-primary shadow-sm'
-                    : 'bg-bg text-text-mid border-border hover:border-primary hover:text-primary'
-                }`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 18px',
+                  borderRadius: '999px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  border: isActive ? '1.5px solid #ff6b35' : '1.5px solid #e5e7eb',
+                  background: isActive ? '#ff6b35' : '#ffffff',
+                  color: isActive ? '#ffffff' : '#374151',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  boxShadow: isActive ? '0 2px 8px rgba(255,107,53,0.25)' : '0 1px 3px rgba(0,0,0,0.06)',
+                }}
               >
                 {cat !== 'All' && <Tag size={12} />}
                 {cat}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  categoryFilter === cat ? 'bg-white/20 text-white' : 'bg-border text-text-mid'
-                }`}>
+                <span style={{
+                  fontSize: '11px',
+                  padding: '1px 8px',
+                  borderRadius: '999px',
+                  background: isActive ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
+                  color: isActive ? '#ffffff' : '#6b7280',
+                  fontWeight: 600,
+                }}>
                   {count}
                 </span>
               </button>
