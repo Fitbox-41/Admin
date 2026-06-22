@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Filter, CheckSquare, Square, MoreVertical, Loader2, Search, Tag } from 'lucide-react';
+import { Plus, Filter, CheckSquare, Square, MoreVertical, Loader2, Search, Tag, Edit2, Save, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -9,6 +9,8 @@ const Products = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkAction, setBulkAction] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const [editPriceForm, setEditPriceForm] = useState({ price: '', oldPrice: '' });
   
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,6 +104,38 @@ const Products = () => {
     }
   };
 
+  const handleEditPriceClick = (product) => {
+    setEditingPriceId(product.id);
+    setEditPriceForm({ price: product.price || '', oldPrice: product.oldPrice || '' });
+  };
+
+  const handleCancelEditPrice = () => {
+    setEditingPriceId(null);
+    setEditPriceForm({ price: '', oldPrice: '' });
+  };
+
+  const handleSavePrice = async (id) => {
+    try {
+      setUpdating(true);
+      const res = await fetch(`${API_URL}/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          price: Number(editPriceForm.price), 
+          oldPrice: Number(editPriceForm.oldPrice) 
+        })
+      });
+      if (res.ok) {
+        await fetchProducts();
+        setEditingPriceId(null);
+      }
+    } catch (error) {
+      console.error('Update price failed:', error);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   // Filtered Products Logic
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -126,8 +160,10 @@ const Products = () => {
       }, {})
     : null;
 
-  const ProductRow = ({ product }) => (
-    <tr className={`hover:bg-bg/50 transition-colors ${selectedIds.includes(product.id) ? 'bg-primary/5' : ''}`}>
+  const renderProductRow = (product) => {
+    const isEditing = editingPriceId === product.id;
+    return (
+    <tr key={product.id} className={`hover:bg-bg/50 transition-colors ${selectedIds.includes(product.id) ? 'bg-primary/5' : ''}`}>
       <td className="px-4 py-4 text-center">
         <input 
           type="checkbox" 
@@ -151,7 +187,48 @@ const Products = () => {
           </div>
         </div>
       </td>
-      <td className="px-6 py-4 font-medium">₹{product.price}</td>
+      <td className="px-6 py-4">
+        {isEditing ? (
+          <div className="flex flex-col gap-2 w-32">
+            <div>
+              <label className="text-xs text-text-mid mb-1 block">Price (₹)</label>
+              <input 
+                type="text" 
+                value={editPriceForm.price} 
+                onChange={(e) => setEditPriceForm({...editPriceForm, price: e.target.value})}
+                className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-mid mb-1 block">MRP (₹)</label>
+              <input 
+                type="text" 
+                value={editPriceForm.oldPrice} 
+                onChange={(e) => setEditPriceForm({...editPriceForm, oldPrice: e.target.value})}
+                className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
+              />
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => handleSavePrice(product.id)} disabled={updating} className="flex-1 flex justify-center items-center py-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 transition-colors">
+                <Save size={16} />
+              </button>
+              <button onClick={handleCancelEditPrice} disabled={updating} className="flex-1 flex justify-center items-center py-1.5 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 group">
+            <div>
+              <div className="text-text-dark font-medium">₹{product.price}</div>
+              {product.oldPrice && <div className="text-xs text-text-mid line-through">₹{product.oldPrice}</div>}
+            </div>
+            <button onClick={() => handleEditPriceClick(product)} className="opacity-0 group-hover:opacity-100 p-1.5 text-text-mid hover:text-primary transition-opacity bg-bg rounded">
+              <Edit2 size={14} />
+            </button>
+          </div>
+        )}
+      </td>
       <td className="px-6 py-4">
         <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${
           product.isOutOfStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
@@ -183,7 +260,8 @@ const Products = () => {
         </div>
       </td>
     </tr>
-  );
+    );
+  };
 
   const TableHeader = () => (
     <thead>
@@ -314,7 +392,7 @@ const Products = () => {
                   <table className="w-full text-left border-collapse min-w-[800px]">
                     <TableHeader />
                     <tbody className="divide-y divide-border">
-                      {items.map(product => <ProductRow key={product.id} product={product} />)}
+                      {items.map(product => renderProductRow(product))}
                     </tbody>
                   </table>
                 </div>
@@ -325,9 +403,7 @@ const Products = () => {
             <table className="w-full text-left border-collapse min-w-[800px]">
               <TableHeader />
               <tbody className="divide-y divide-border">
-                {filteredProducts.map((product) => (
-                  <ProductRow key={product.id} product={product} />
-                ))}
+                {filteredProducts.map((product) => renderProductRow(product))}
                 {filteredProducts.length === 0 && (
                   <tr>
                     <td colSpan="6" className="px-6 py-8 text-center text-text-mid">
