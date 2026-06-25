@@ -3,6 +3,7 @@ import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
+import AddProduct from './pages/AddProduct';
 import Orders from './pages/Orders';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
@@ -49,6 +50,7 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="products" element={<Products />} />
+              <Route path="products/new" element={<AddProduct />} />
               <Route path="orders" element={<Orders />} />
               <Route path="users" element={<DeveloperUsers />} />
               

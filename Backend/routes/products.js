@@ -13,6 +13,26 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Create new product
+router.post('/', async (req, res) => {
+    try {
+        // Find the maximum ID currently in the DB
+        const maxProduct = await Product.findOne().sort({ id: -1 });
+        const newId = maxProduct ? maxProduct.id + 1 : 1;
+
+        const productData = {
+            ...req.body,
+            id: newId
+        };
+
+        const newProduct = new Product(productData);
+        await newProduct.save();
+        res.status(201).json(newProduct);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+});
+
 // Update single product status
 router.put('/:id/status', async (req, res) => {
     try {

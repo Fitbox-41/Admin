@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus, Filter, CheckSquare, Square, MoreVertical, Loader2, Search, Tag, Edit2, Save, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -10,7 +11,7 @@ const Products = () => {
   const [bulkAction, setBulkAction] = useState('');
   const [updating, setUpdating] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
-  const [editPriceForm, setEditPriceForm] = useState({ price: '', oldPrice: '' });
+  const [editPriceForm, setEditPriceForm] = useState({ price: '', oldPrice: '', variants: [], sizes: [] });
   
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,12 +107,17 @@ const Products = () => {
 
   const handleEditPriceClick = (product) => {
     setEditingPriceId(product.id);
-    setEditPriceForm({ price: product.price || '', oldPrice: product.oldPrice || '' });
+    setEditPriceForm({ 
+      price: product.price || '', 
+      oldPrice: product.oldPrice || '',
+      variants: product.variants ? product.variants.map(v => ({ ...v })) : [],
+      sizes: product.sizes ? product.sizes.map(s => ({ ...s })) : []
+    });
   };
 
   const handleCancelEditPrice = () => {
     setEditingPriceId(null);
-    setEditPriceForm({ price: '', oldPrice: '' });
+    setEditPriceForm({ price: '', oldPrice: '', variants: [], sizes: [] });
   };
 
   const handleSavePrice = async (id) => {
@@ -122,7 +128,9 @@ const Products = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           price: Number(editPriceForm.price), 
-          oldPrice: Number(editPriceForm.oldPrice) 
+          oldPrice: Number(editPriceForm.oldPrice),
+          variants: editPriceForm.variants.map(v => ({ ...v, price: Number(v.price), oldPrice: Number(v.oldPrice), weight: Number(v.weight) })),
+          sizes: editPriceForm.sizes.map(s => ({ ...s, price: Number(s.price), oldPrice: Number(s.oldPrice), weight: Number(s.weight) }))
         })
       });
       if (res.ok) {
@@ -189,25 +197,89 @@ const Products = () => {
       </td>
       <td className="px-6 py-4">
         {isEditing ? (
-          <div className="flex flex-col gap-2 w-32">
-            <div>
-              <label className="text-xs text-text-mid mb-1 block">Price (₹)</label>
-              <input 
-                type="text" 
-                value={editPriceForm.price} 
-                onChange={(e) => setEditPriceForm({...editPriceForm, price: e.target.value})}
-                className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
-              />
+          <div className="flex flex-col gap-2 w-64">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-text-mid mb-1 block">Base Price (₹)</label>
+                <input 
+                  type="text" 
+                  value={editPriceForm.price} 
+                  onChange={(e) => setEditPriceForm({...editPriceForm, price: e.target.value})}
+                  className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-mid mb-1 block">Base MRP (₹)</label>
+                <input 
+                  type="text" 
+                  value={editPriceForm.oldPrice} 
+                  onChange={(e) => setEditPriceForm({...editPriceForm, oldPrice: e.target.value})}
+                  className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-text-mid mb-1 block">MRP (₹)</label>
-              <input 
-                type="text" 
-                value={editPriceForm.oldPrice} 
-                onChange={(e) => setEditPriceForm({...editPriceForm, oldPrice: e.target.value})}
-                className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
-              />
-            </div>
+
+            {/* Variants */}
+            {editPriceForm.variants && editPriceForm.variants.length > 0 && (
+              <div className="mt-2 p-2 border border-border rounded bg-bg/50">
+                <label className="text-xs font-semibold block mb-1">Colors</label>
+                {editPriceForm.variants.map((v, i) => (
+                  <div key={i} className="mb-2 last:mb-0">
+                    <span className="text-xs font-medium">{v.color}</span>
+                    <div className="flex gap-1 mt-1">
+                      <input type="text" placeholder="Price" value={v.price || ''} onChange={(e) => {
+                        const newV = [...editPriceForm.variants];
+                        newV[i].price = e.target.value;
+                        setEditPriceForm({...editPriceForm, variants: newV});
+                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+                      <input type="text" placeholder="MRP" value={v.oldPrice || ''} onChange={(e) => {
+                        const newV = [...editPriceForm.variants];
+                        newV[i].oldPrice = e.target.value;
+                        setEditPriceForm({...editPriceForm, variants: newV});
+                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+                      <input type="text" placeholder="Weight(g)" value={v.weight || ''} onChange={(e) => {
+                        const newV = [...editPriceForm.variants];
+                        newV[i].weight = e.target.value;
+                        setEditPriceForm({...editPriceForm, variants: newV});
+                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sizes */}
+            {editPriceForm.sizes && editPriceForm.sizes.length > 0 && (
+              <div className="mt-2 p-2 border border-border rounded bg-bg/50">
+                <label className="text-xs font-semibold block mb-1">Sizes</label>
+                {editPriceForm.sizes.map((s, i) => (
+                  <div key={i} className="mb-2 last:mb-0">
+                    <span className="text-xs font-medium">{s.name || s}</span>
+                    <div className="flex gap-1 mt-1">
+                      <input type="text" placeholder="Price" value={s.price || ''} onChange={(e) => {
+                        const newS = [...editPriceForm.sizes];
+                        newS[i] = typeof newS[i] === 'string' ? { name: newS[i] } : newS[i];
+                        newS[i].price = e.target.value;
+                        setEditPriceForm({...editPriceForm, sizes: newS});
+                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+                      <input type="text" placeholder="MRP" value={s.oldPrice || ''} onChange={(e) => {
+                        const newS = [...editPriceForm.sizes];
+                        newS[i] = typeof newS[i] === 'string' ? { name: newS[i] } : newS[i];
+                        newS[i].oldPrice = e.target.value;
+                        setEditPriceForm({...editPriceForm, sizes: newS});
+                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+                      <input type="text" placeholder="Weight(g)" value={s.weight || ''} onChange={(e) => {
+                        const newS = [...editPriceForm.sizes];
+                        newS[i] = typeof newS[i] === 'string' ? { name: newS[i] } : newS[i];
+                        newS[i].weight = e.target.value;
+                        setEditPriceForm({...editPriceForm, sizes: newS});
+                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-2 mt-2">
               <button onClick={() => handleSavePrice(product.id)} disabled={updating} className="flex-1 flex justify-center items-center py-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 transition-colors">
                 <Save size={16} />
@@ -222,6 +294,9 @@ const Products = () => {
             <div>
               <div className="text-text-dark font-medium">₹{product.price}</div>
               {product.oldPrice && <div className="text-xs text-text-mid line-through">₹{product.oldPrice}</div>}
+              {(product.variants?.some(v => v.price) || product.sizes?.some(s => s.price)) && (
+                <div className="text-[10px] text-primary font-medium mt-1">Multi-price</div>
+              )}
             </div>
             <button onClick={() => handleEditPriceClick(product)} className="p-1.5 text-text-mid hover:text-primary transition-colors bg-bg rounded shadow-sm border border-border/50">
               <Edit2 size={14} />
@@ -287,6 +362,13 @@ const Products = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-3xl font-bold font-heading text-text-dark">Products</h1>
+        <Link 
+          to="/products/new" 
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm"
+        >
+          <Plus size={18} />
+          Add Product
+        </Link>
       </div>
 
       {/* Category Tabs */}
