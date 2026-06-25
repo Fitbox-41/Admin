@@ -11,7 +11,7 @@ const Products = () => {
   const [bulkAction, setBulkAction] = useState('');
   const [updating, setUpdating] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState(null);
-  const [editPriceForm, setEditPriceForm] = useState({ price: '', oldPrice: '', variants: [], sizes: [] });
+  const [editPriceForm, setEditPriceForm] = useState({ price: '', oldPrice: '', variants: [] });
   
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,17 +107,16 @@ const Products = () => {
 
   const handleEditPriceClick = (product) => {
     setEditingPriceId(product.id);
-    setEditPriceForm({ 
-      price: product.price || '', 
+    setEditPriceForm({
+      price: product.price || '',
       oldPrice: product.oldPrice || '',
-      variants: product.variants ? product.variants.map(v => ({ ...v })) : [],
-      sizes: product.sizes ? product.sizes.map(s => ({ ...s })) : []
+      variants: product.variants ? JSON.parse(JSON.stringify(product.variants)) : []
     });
   };
 
   const handleCancelEditPrice = () => {
     setEditingPriceId(null);
-    setEditPriceForm({ price: '', oldPrice: '', variants: [], sizes: [] });
+    setEditPriceForm({ price: '', oldPrice: '', variants: [] });
   };
 
   const handleSavePrice = async (id) => {
@@ -127,10 +126,17 @@ const Products = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          price: Number(editPriceForm.price), 
-          oldPrice: Number(editPriceForm.oldPrice),
-          variants: editPriceForm.variants.map(v => ({ ...v, price: Number(v.price), oldPrice: Number(v.oldPrice), weight: Number(v.weight) })),
-          sizes: editPriceForm.sizes.map(s => ({ ...s, price: Number(s.price), oldPrice: Number(s.oldPrice), weight: Number(s.weight) }))
+          price: Number(editPriceForm.price) || undefined, 
+          oldPrice: Number(editPriceForm.oldPrice) || undefined,
+          variants: editPriceForm.variants.map(v => ({
+            ...v,
+            sizes: (v.sizes || []).map(s => ({
+              ...s,
+              price: Number(s.price) || 0,
+              oldPrice: Number(s.oldPrice) || 0,
+              weight: Number(s.weight) || 0
+            }))
+          }))
         })
       });
       if (res.ok) {
@@ -197,109 +203,67 @@ const Products = () => {
       </td>
       <td className="px-6 py-4">
         {isEditing ? (
-          <div className="flex flex-col gap-2 w-64">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-text-mid mb-1 block">Base Price (₹)</label>
-                <input 
-                  type="text" 
-                  value={editPriceForm.price} 
-                  onChange={(e) => setEditPriceForm({...editPriceForm, price: e.target.value})}
-                  className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-text-mid mb-1 block">Base MRP (₹)</label>
-                <input 
-                  type="text" 
-                  value={editPriceForm.oldPrice} 
-                  onChange={(e) => setEditPriceForm({...editPriceForm, oldPrice: e.target.value})}
-                  className="w-full px-2 py-1 border border-border rounded text-sm bg-bg"
-                />
-              </div>
-            </div>
-
-            {/* Variants */}
+          <div className="flex flex-col gap-2 w-72">
+            {/* Variants → nested sizes edit */}
             {editPriceForm.variants && editPriceForm.variants.length > 0 && (
-              <div className="mt-2 p-2 border border-border rounded bg-bg/50">
-                <label className="text-xs font-semibold block mb-1">Colors</label>
-                {editPriceForm.variants.map((v, i) => (
-                  <div key={i} className="mb-2 last:mb-0">
-                    <span className="text-xs font-medium">{v.color}</span>
-                    <div className="flex gap-1 mt-1">
-                      <input type="text" placeholder="Price" value={v.price || ''} onChange={(e) => {
-                        const newV = [...editPriceForm.variants];
-                        newV[i].price = e.target.value;
-                        setEditPriceForm({...editPriceForm, variants: newV});
-                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
-                      <input type="text" placeholder="MRP" value={v.oldPrice || ''} onChange={(e) => {
-                        const newV = [...editPriceForm.variants];
-                        newV[i].oldPrice = e.target.value;
-                        setEditPriceForm({...editPriceForm, variants: newV});
-                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
-                      <input type="text" placeholder="Weight(g)" value={v.weight || ''} onChange={(e) => {
-                        const newV = [...editPriceForm.variants];
-                        newV[i].weight = e.target.value;
-                        setEditPriceForm({...editPriceForm, variants: newV});
-                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {editPriceForm.variants.map((v, vIdx) => (
+                  <div key={vIdx} className="border border-border rounded bg-bg/30 overflow-hidden">
+                    {v.color && (
+                      <div className="px-2 py-1 bg-primary/10 text-xs font-bold text-primary">{v.color}</div>
+                    )}
+                    <div className="p-1 space-y-1">
+                      <div className="grid grid-cols-4 gap-1 text-[10px] text-text-mid font-medium px-1">
+                        <span>Size</span><span>Price</span><span>MRP</span><span>Wt(g)</span>
+                      </div>
+                      {(v.sizes || []).map((s, sIdx) => (
+                        <div key={sIdx} className="grid grid-cols-4 gap-1">
+                          <span className="text-[11px] font-medium self-center px-1 truncate">{s.name || '—'}</span>
+                          <input type="text" value={s.price ?? ''} onChange={(e) => {
+                            const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
+                            nv[vIdx].sizes[sIdx].price = e.target.value;
+                            setEditPriceForm({...editPriceForm, variants: nv});
+                          }} className="px-1 py-0.5 border border-border rounded text-xs bg-white" />
+                          <input type="text" value={s.oldPrice ?? ''} onChange={(e) => {
+                            const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
+                            nv[vIdx].sizes[sIdx].oldPrice = e.target.value;
+                            setEditPriceForm({...editPriceForm, variants: nv});
+                          }} className="px-1 py-0.5 border border-border rounded text-xs bg-white" />
+                          <input type="text" value={s.weight ?? ''} onChange={(e) => {
+                            const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
+                            nv[vIdx].sizes[sIdx].weight = e.target.value;
+                            setEditPriceForm({...editPriceForm, variants: nv});
+                          }} className="px-1 py-0.5 border border-border rounded text-xs bg-white" />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Sizes */}
-            {editPriceForm.sizes && editPriceForm.sizes.length > 0 && (
-              <div className="mt-2 p-2 border border-border rounded bg-bg/50">
-                <label className="text-xs font-semibold block mb-1">Sizes</label>
-                {editPriceForm.sizes.map((s, i) => (
-                  <div key={i} className="mb-2 last:mb-0">
-                    <span className="text-xs font-medium">{s.name || s}</span>
-                    <div className="flex gap-1 mt-1">
-                      <input type="text" placeholder="Price" value={s.price || ''} onChange={(e) => {
-                        const newS = [...editPriceForm.sizes];
-                        newS[i] = typeof newS[i] === 'string' ? { name: newS[i] } : newS[i];
-                        newS[i].price = e.target.value;
-                        setEditPriceForm({...editPriceForm, sizes: newS});
-                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
-                      <input type="text" placeholder="MRP" value={s.oldPrice || ''} onChange={(e) => {
-                        const newS = [...editPriceForm.sizes];
-                        newS[i] = typeof newS[i] === 'string' ? { name: newS[i] } : newS[i];
-                        newS[i].oldPrice = e.target.value;
-                        setEditPriceForm({...editPriceForm, sizes: newS});
-                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
-                      <input type="text" placeholder="Weight(g)" value={s.weight || ''} onChange={(e) => {
-                        const newS = [...editPriceForm.sizes];
-                        newS[i] = typeof newS[i] === 'string' ? { name: newS[i] } : newS[i];
-                        newS[i].weight = e.target.value;
-                        setEditPriceForm({...editPriceForm, sizes: newS});
-                      }} className="w-1/3 px-1 py-1 border border-border rounded text-xs bg-bg" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             <div className="flex gap-2 mt-2">
-              <button onClick={() => handleSavePrice(product.id)} disabled={updating} className="flex-1 flex justify-center items-center py-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 transition-colors">
-                <Save size={16} />
+              <button onClick={() => handleSavePrice(product.id)} disabled={updating} className="flex-1 flex justify-center items-center py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 transition-colors">
+                <Save size={14} />
               </button>
-              <button onClick={handleCancelEditPrice} disabled={updating} className="flex-1 flex justify-center items-center py-1.5 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors">
-                <X size={16} />
+              <button onClick={handleCancelEditPrice} disabled={updating} className="flex-1 flex justify-center items-center py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors">
+                <X size={14} />
               </button>
             </div>
           </div>
+
         ) : (
           <div className="flex items-center gap-2 group">
             <div>
-              <div className="text-text-dark font-medium">₹{product.price}</div>
-              {product.oldPrice && <div className="text-xs text-text-mid line-through">₹{product.oldPrice}</div>}
-              {(product.variants?.some(v => v.price) || product.sizes?.some(s => s.price)) && (
-                <div className="text-[10px] text-primary font-medium mt-1">Multi-price</div>
+              <div className="text-text-dark font-medium">₹{product.price || (product.variants?.[0]?.sizes?.[0]?.price)}</div>
+              {(product.oldPrice || product.variants?.[0]?.sizes?.[0]?.oldPrice) && (
+                <div className="text-xs text-text-mid line-through">₹{product.oldPrice || product.variants?.[0]?.sizes?.[0]?.oldPrice}</div>
+              )}
+              {(product.variants?.length > 1 || (product.variants?.[0]?.sizes?.length > 1)) && (
+                <div className="text-[13px] bg-primary text-white font-bold px-2 py-1 rounded inline-block mt-1">Multiple Prices</div>
               )}
             </div>
-            <button onClick={() => handleEditPriceClick(product)} className="p-1.5 text-text-mid hover:text-primary transition-colors bg-bg rounded shadow-sm border border-border/50">
-              <Edit2 size={14} />
+            <button onClick={() => handleEditPriceClick(product)} className="p-2 text-text-mid hover:text-primary transition-colors bg-bg rounded shadow-sm border border-border/50">
+              <Edit2 size={18} />
             </button>
           </div>
         )}

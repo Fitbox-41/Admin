@@ -84,14 +84,19 @@ router.put('/bulk-status', async (req, res) => {
     }
 });
 
-// Update product details (e.g. price, mrp)
+// Update product details (e.g. price, mrp, variants)
 router.put('/:id', async (req, res) => {
     try {
-        const { price, oldPrice } = req.body;
-        const updateData = {};
+        const allowed = ['price', 'oldPrice', 'name', 'category', 'subCategory', 'isNew', 
+                         'isOutOfStock', 'qualities', 'longDesc', 'features', 'material',
+                         'relatedIds', 'variants', 'showcaseImages', 'imgSrc', 'hoverImgSrc'];
         
-        if (price !== undefined) updateData.price = Number(price);
-        if (oldPrice !== undefined) updateData.oldPrice = Number(oldPrice);
+        const updateData = {};
+        allowed.forEach(key => {
+            if (req.body[key] !== undefined) updateData[key] = req.body[key];
+        });
+        if (updateData.price !== undefined) updateData.price = Number(updateData.price);
+        if (updateData.oldPrice !== undefined) updateData.oldPrice = Number(updateData.oldPrice);
 
         const product = await Product.findOneAndUpdate(
             { id: req.params.id },
