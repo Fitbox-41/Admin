@@ -165,7 +165,7 @@ const Topbar = ({ onMenuClick }) => {
                               <ShoppingCart size={14} />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-text-dark">Order #{order._id.slice(-6).toUpperCase()}</p>
+                              <p className="text-sm font-medium text-text-dark">Order {order.invoiceNumber ? order.invoiceNumber : `FBX-${order._id.slice(-8).toUpperCase()}`}</p>
                               <p className="text-xs text-text-light">{order.customerName || 'Guest'}</p>
                             </div>
                           </div>
@@ -251,7 +251,7 @@ const Topbar = ({ onMenuClick }) => {
                       </div>
                       <div>
                         <p className="text-sm text-text-dark">
-                          New order <span className="font-semibold">#{order._id.slice(-6).toUpperCase()}</span> from <span className="font-semibold">{order.customerName || 'Guest'}</span>
+                          New order <span className="font-semibold">{order.invoiceNumber ? order.invoiceNumber : `FBX-${order._id.slice(-8).toUpperCase()}`}</span> from <span className="font-semibold">{order.customerName || 'Guest'}</span>
                         </p>
                         <p className="text-xs text-text-light mt-1">
                           {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
