@@ -8,6 +8,7 @@ import {
   Archive, 
   CreditCard, 
   Megaphone, 
+  BarChart3,
   Settings,
   LogOut,
   X,
