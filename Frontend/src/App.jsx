@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import AddProduct from './pages/AddProduct';
 import Orders from './pages/Orders';
+import Refunds from './pages/Refunds';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
 
@@ -52,6 +53,7 @@ function App() {
               <Route path="products" element={<Products />} />
               <Route path="products/new" element={<AddProduct />} />
               <Route path="orders" element={<Orders />} />
+              <Route path="refunds" element={<Refunds />} />
               <Route path="users" element={<DeveloperUsers />} />
               
               {/* Placeholders for other routes */}

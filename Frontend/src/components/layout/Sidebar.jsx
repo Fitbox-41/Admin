@@ -8,11 +8,11 @@ import {
   Archive, 
   CreditCard, 
   Megaphone, 
-  BarChart3, 
   Settings,
   LogOut,
   X,
-  Shield
+  Shield,
+  Undo2
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -31,6 +31,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Customers', path: '/customers', icon: <Users size={20} /> },
     { name: 'Payments', path: '/payments', icon: <CreditCard size={20} /> },
     { name: 'Analytics', path: '/analytics', icon: <BarChart3 size={20} /> },
+    { name: 'Refunds', path: '/refunds', icon: <Undo2 size={20} /> },
     { name: 'Admin Users', path: '/users', icon: <Shield size={20} /> },
   ];
 

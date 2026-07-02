@@ -168,4 +168,20 @@ router.get('/export', async (req, res) => {
   }
 });
 
+// PUT /api/orders/:id/refund
+router.put('/:id/refund', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    order.isRefunded = true;
+    order.refundedAt = new Date();
+    await order.save();
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 export default router;
