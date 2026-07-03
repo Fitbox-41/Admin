@@ -7,6 +7,7 @@ import userRoutes from './routes/users.js';
 import productRoutes from './routes/products.js';
 import customerRoutes from './routes/customers.js';
 import orderRoutes from './routes/orders.js';
+import settingsRoutes from './routes/settings.js';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Start the server locally, but export for serverless (like Vercel)
 if (process.env.NODE_ENV !== 'production') {
