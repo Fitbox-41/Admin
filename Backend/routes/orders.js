@@ -176,6 +176,7 @@ router.put('/:id/refund', async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
     order.isRefunded = true;
+    order.refunded = 'yes';
     order.refundedAt = new Date();
     await order.save();
     res.json(order);

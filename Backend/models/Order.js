@@ -28,7 +28,8 @@ const orderSchema = new mongoose.Schema({
   invoiceNumber: String,
   invoiceUrl: String,
   paymentId: String,
-  paidAt: Date
+  paidAt: Date,
+  refunded: { type: String, enum: ['yes', 'no'], default: 'no' }
 }, { timestamps: true });
 
 // Map to the existing 'orders' collection used by FitBox frontend
