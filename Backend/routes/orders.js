@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
-import { trackDelhiveryShipment } from '../utils/delhivery.js';
+import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel } from '../utils/delhivery.js';
 
 const router = express.Router();
 
@@ -290,6 +290,62 @@ router.post('/sync-tracking', async (req, res) => {
     res.json({ success: true, ...results });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/orders/:id/pickup — Schedule Delhivery Pickup
+router.post('/:id/pickup', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.awb) return res.status(400).json({ message: 'Order does not have an AWB yet' });
+
+    // Schedule for today if before 2pm, otherwise tomorrow
+    const now = new Date();
+    const isAfter2PM = now.getHours() >= 14;
+    const pickupDateObj = new Date(now);
+    if (isAfter2PM) {
+      pickupDateObj.setDate(pickupDateObj.getDate() + 1);
+    }
+    
+    // Format YYYY-MM-DD
+    const yyyy = pickupDateObj.getFullYear();
+    const mm = String(pickupDateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(pickupDateObj.getDate()).padStart(2, '0');
+    const pickupDate = `${yyyy}-${mm}-${dd}`;
+    
+    // Pickup time (default 15:00:00)
+    const pickupTime = '15:00:00';
+
+    const pickupResponse = await requestDelhiveryPickup(pickupDate, pickupTime, 1);
+    
+    res.json({
+      success: true,
+      message: 'Pickup scheduled successfully',
+      details: pickupResponse
+    });
+  } catch (error) {
+    console.error('Pickup schedule error:', error.message);
+    res.status(500).json({ message: 'Failed to schedule pickup', error: error.message });
+  }
+});
+
+// GET /api/orders/:id/label — Get PDF Label URL
+router.get('/:id/label', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.awb) return res.status(400).json({ message: 'Order does not have an AWB yet' });
+
+    const pdfUrl = await getDelhiveryLabel(order.awb);
+    
+    res.json({
+      success: true,
+      pdfUrl: pdfUrl
+    });
+  } catch (error) {
+    console.error('Label fetch error:', error.message);
+    res.status(500).json({ message: 'Failed to fetch label', error: error.message });
   }
 });
 

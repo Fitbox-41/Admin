@@ -79,3 +79,53 @@ export const trackDelhiveryShipment = async (awb) => {
     throw new Error('Delhivery tracking failed: ' + (error.response?.data ? JSON.stringify(error.response.data) : error.message));
   }
 };
+
+/**
+ * Request a pickup for a shipment
+ */
+export const requestDelhiveryPickup = async (pickupDate, pickupTime, expectedPackageCount) => {
+  try {
+    const response = await axios.post(
+      `${process.env.DELHIVERY_BASE_URL}/fm/request/new/`,
+      {
+        pickup_time: pickupTime,
+        pickup_date: pickupDate,
+        pickup_location: process.env.DELHIVERY_CLIENT_NAME,
+        expected_package_count: expectedPackageCount
+      },
+      {
+        headers: {
+          'Authorization': `Token ${process.env.DELHIVERY_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error('Delhivery pickup failed: ' + (error.response?.data ? JSON.stringify(error.response.data) : error.message));
+  }
+};
+
+/**
+ * Get PDF label download link for an AWB
+ */
+export const getDelhiveryLabel = async (awb) => {
+  try {
+    const response = await axios.get(
+      `${process.env.DELHIVERY_BASE_URL}/api/p/packing_slip?wbns=${awb}&pdf=true`,
+      {
+        headers: {
+          'Authorization': `Token ${process.env.DELHIVERY_API_KEY}`,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (response.data && response.data.packages && response.data.packages.length > 0) {
+      return response.data.packages[0].pdf_download_link;
+    }
+    throw new Error('No packages found for this AWB');
+  } catch (error) {
+    throw new Error('Delhivery label fetch failed: ' + (error.response?.data ? JSON.stringify(error.response.data) : error.message));
+  }
+};

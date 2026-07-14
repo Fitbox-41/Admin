@@ -74,6 +74,36 @@ const Orders = () => {
     }
   };
 
+  const handleSchedulePickup = async (orderId) => {
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}/pickup`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Pickup scheduled successfully with Delhivery!');
+      } else {
+        alert('Failed to schedule pickup: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to schedule pickup', error);
+      alert('Failed to schedule pickup');
+    }
+  };
+
+  const handlePrintLabel = async (orderId) => {
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}/label`);
+      const data = await res.json();
+      if (res.ok && data.success && data.pdfUrl) {
+        window.open(data.pdfUrl, '_blank');
+      } else {
+        alert('Failed to fetch label: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch label', error);
+      alert('Failed to fetch label');
+    }
+  };
+
   const getOrderStatusColor = (status) => {
     switch(status) {
       case 'Completed': return 'bg-green-100 text-green-700';
@@ -359,17 +389,15 @@ const Orders = () => {
                               </button>
 
                               {/* Print Label */}
-                              <a
-                                href={order.labelUrl || '#'}
-                                target={order.labelUrl ? '_blank' : undefined}
-                                rel="noreferrer"
-                                onClick={!order.labelUrl ? (e) => e.preventDefault() : undefined}
-                                className={`inline-flex items-center gap-1 text-sm font-medium transition-colors ${order.labelUrl ? 'text-indigo-600 hover:text-indigo-800 hover:underline' : 'text-text-mid cursor-not-allowed opacity-50'}`}
-                                title={order.labelUrl ? 'Print shipping label' : 'Label not available'}
+                              <button
+                                onClick={() => handlePrintLabel(order._id)}
+                                disabled={!order.awb}
+                                className={`inline-flex items-center gap-1 text-sm font-medium transition-colors ${order.awb ? 'text-indigo-600 hover:text-indigo-800 hover:underline' : 'text-text-mid cursor-not-allowed opacity-50'}`}
+                                title={order.awb ? 'Print shipping label' : 'Label not available'}
                               >
                                 <Printer size={14} />
                                 Print Label
-                              </a>
+                              </button>
 
                               {/* Download Invoice */}
                               {order.invoiceUrl && (
@@ -446,9 +474,17 @@ const Orders = () => {
                                       </select>
                                     </div>
                                     {order.awb && (
-                                      <div>
-                                        <span className="text-text-mid">AWB:</span>{' '}
-                                        <span className="text-text-dark font-mono">{order.awb}</span>
+                                      <div className="flex items-center justify-between mt-2">
+                                        <div>
+                                          <span className="text-text-mid">AWB:</span>{' '}
+                                          <span className="text-text-dark font-mono font-medium">{order.awb}</span>
+                                        </div>
+                                        <button
+                                          onClick={() => handleSchedulePickup(order._id)}
+                                          className="text-xs px-3 py-1.5 bg-[#f0503c] text-white rounded font-semibold hover:bg-[#d94836] transition-colors"
+                                        >
+                                          Schedule Pickup
+                                        </button>
                                       </div>
                                     )}
                                     {order.paymentId && (
