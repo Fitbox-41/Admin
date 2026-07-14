@@ -104,20 +104,16 @@ const Orders = () => {
     switch(status) {
       case 'Delivered': return 'bg-green-100 text-green-700';
       case 'Out for Delivery': return 'bg-teal-100 text-teal-700';
-      case 'Shipped': return 'bg-blue-100 text-blue-700';
-      case 'Created': return 'bg-indigo-100 text-indigo-700';
+      case 'In Transit': return 'bg-blue-100 text-blue-700';
+      case 'Ready to Ship': return 'bg-indigo-100 text-indigo-700';
       case 'Cancelled': return 'bg-red-100 text-red-700';
-      case 'Pending': return 'bg-yellow-100 text-yellow-700';
+      case 'Ordered': return 'bg-yellow-100 text-yellow-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   const getShipmentStatusLabel = (status) => {
-    switch(status) {
-      case 'Pending': return 'Unfulfilled';
-      case 'Created': return 'Label Created';
-      default: return status;
-    }
+    return status;
   };
 
   const filteredOrders = orders.filter(o => {
@@ -128,7 +124,7 @@ const Orders = () => {
     
     const orderStatus = o.orderStatus || 'Pending';
     const paymentMode = o.paymentMode || 'Online';
-    const shipmentStatus = o.shipmentStatus || 'Pending';
+    const shipmentStatus = o.shipmentStatus || 'Ordered';
     const paymentStatus = o.paymentStatus || 'Pending Payment';
     
     let matchesTab = false;
@@ -146,14 +142,12 @@ const Orders = () => {
       if (matchesTab) {
         if (subTab === 'All') {
            matchesTab = true;
-        } else if (subTab === 'Payment Pending') {
-           matchesTab = paymentStatus === 'Pending Payment';
-        } else if (subTab === 'Unfulfilled') {
-           matchesTab = (paymentStatus === 'Paid' || paymentMode === 'COD') && shipmentStatus === 'Pending';
+        } else if (subTab === 'Ordered') {
+           matchesTab = shipmentStatus === 'Ordered';
         } else if (subTab === 'Ready to Ship') {
-           matchesTab = (paymentStatus === 'Paid' || paymentMode === 'COD') && shipmentStatus === 'Created';
-        } else if (subTab === 'Shipped') {
-           matchesTab = shipmentStatus === 'Shipped';
+           matchesTab = shipmentStatus === 'Ready to Ship';
+        } else if (subTab === 'In Transit') {
+           matchesTab = shipmentStatus === 'In Transit';
         } else if (subTab === 'Out for Delivery') {
            matchesTab = shipmentStatus === 'Out for Delivery';
         } else {
@@ -240,7 +234,7 @@ const Orders = () => {
         {/* Processing Sub-Tabs */}
         {activeTab === 'Processing' && (
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', padding: '8px 0 4px' }}>
-            {['All', 'Payment Pending', 'Unfulfilled', 'Ready to Ship', 'Shipped', 'Out for Delivery'].map(tab => (
+            {['All', 'Ordered', 'Ready to Ship', 'In Transit', 'Out for Delivery'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setSubTab(tab)}
@@ -348,8 +342,8 @@ const Orders = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getShipmentStatusColor(order.shipmentStatus || 'Pending')}`}>
-                              {getShipmentStatusLabel(order.shipmentStatus || 'Pending')}
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getShipmentStatusColor(order.shipmentStatus || 'Ordered')}`}>
+                              {getShipmentStatusLabel(order.shipmentStatus || 'Ordered')}
                             </span>
                           </td>
                           {/* Actions column — always visible */}
@@ -443,9 +437,9 @@ const Orders = () => {
                                         onChange={(e) => handleStatusChange(order._id, e.target.value)}
                                         className="px-2 py-1 rounded-lg text-xs font-medium border border-border bg-bg outline-none cursor-pointer"
                                       >
-                                        <option value="Pending">Unfulfilled</option>
-                                        <option value="Created">Label Created</option>
-                                        <option value="Shipped">Shipped</option>
+                                        <option value="Ordered">Ordered</option>
+                                        <option value="Ready to Ship">Ready to Ship</option>
+                                        <option value="In Transit">In Transit</option>
                                         <option value="Out for Delivery">Out for Delivery</option>
                                         <option value="Delivered">Delivered</option>
                                         <option value="Cancelled">Cancelled</option>
