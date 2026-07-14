@@ -216,7 +216,12 @@ router.get('/:id/track', async (req, res) => {
 
       if (newIdx > currentIdx || newStatus === 'RTO' || newStatus === 'Cancelled') {
         order.shipmentStatus = newStatus;
-        if (newStatus === 'Delivered') order.orderStatus = 'Completed';
+        if (newStatus === 'Delivered') {
+          order.orderStatus = 'Completed';
+          if (order.paymentMode === 'COD') {
+            order.paymentStatus = 'Paid';
+          }
+        }
         await order.save();
       }
     }
@@ -275,7 +280,12 @@ router.post('/sync-tracking', async (req, res) => {
           if (newIdx > currentIdx || newStatus === 'RTO' || newStatus === 'Cancelled') {
             const oldStatus = order.shipmentStatus;
             order.shipmentStatus = newStatus;
-            if (newStatus === 'Delivered') order.orderStatus = 'Completed';
+            if (newStatus === 'Delivered') {
+              order.orderStatus = 'Completed';
+              if (order.paymentMode === 'COD') {
+                order.paymentStatus = 'Paid';
+              }
+            }
             await order.save();
             results.updated++;
             results.details.push({ orderId: order._id, awb: order.awb, from: oldStatus, to: newStatus });
