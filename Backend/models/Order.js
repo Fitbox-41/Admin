@@ -21,7 +21,7 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['Pending Payment', 'Paid', 'Failed'], default: 'Pending Payment' },
   paymentMode: { type: String, enum: ['Online', 'COD'], default: 'Online' },
   orderStatus: { type: String, enum: ['Pending', 'Completed', 'Cancelled'], default: 'Pending' },
-  shipmentStatus: { type: String, enum: ['Ordered', 'Ready to Ship', 'In Transit', 'Out for Delivery', 'Delivered', 'Cancelled'], default: 'Ordered' },
+  shipmentStatus: { type: String, enum: ['Pending', 'Created', 'Ready to Ship', 'In Transit', 'Out for Delivery', 'Delivered', 'RTO', 'Cancelled'], default: 'Pending' },
   awb: String,
   courier: { type: String, default: 'Delhivery' },
   trackingUrl: String,

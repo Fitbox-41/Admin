@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
+import { trackDelhiveryShipment } from '../utils/delhivery.js';
 
 const router = express.Router();
 
@@ -180,6 +181,113 @@ router.put('/:id/refund', async (req, res) => {
     order.refundedAt = new Date();
     await order.save();
     res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/orders/:id/track — Live tracking from Delhivery
+router.get('/:id/track', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    if (!order.awb) {
+      return res.json({
+        success: true,
+        tracking: {
+          status: order.shipmentStatus || 'Pending',
+          delhiveryStatus: null,
+          scans: [],
+          estimatedDate: null,
+          awb: null
+        }
+      });
+    }
+
+    const tracking = await trackDelhiveryShipment(order.awb);
+
+    // Update order status in DB if changed
+    const newStatus = tracking.status;
+    if (newStatus && newStatus !== order.shipmentStatus) {
+      const statusOrder = ['Pending', 'Created', 'Ready to Ship', 'In Transit', 'Out for Delivery', 'Delivered', 'RTO', 'Cancelled'];
+      const currentIdx = statusOrder.indexOf(order.shipmentStatus);
+      const newIdx = statusOrder.indexOf(newStatus);
+
+      if (newIdx > currentIdx || newStatus === 'RTO' || newStatus === 'Cancelled') {
+        order.shipmentStatus = newStatus;
+        if (newStatus === 'Delivered') order.orderStatus = 'Completed';
+        await order.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      tracking: {
+        status: tracking.status,
+        delhiveryStatus: tracking.delhiveryStatus,
+        scans: tracking.scans,
+        estimatedDate: tracking.estimatedDate,
+        awb: order.awb
+      }
+    });
+  } catch (error) {
+    console.error('Track order error:', error.message);
+    try {
+      const order = await Order.findById(req.params.id);
+      return res.json({
+        success: true,
+        tracking: {
+          status: order?.shipmentStatus || 'Pending',
+          delhiveryStatus: null,
+          scans: [],
+          estimatedDate: null,
+          awb: order?.awb || null,
+          error: 'Live tracking temporarily unavailable'
+        }
+      });
+    } catch (e) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+});
+
+// POST /api/orders/sync-tracking — Bulk sync shipment statuses from Delhivery
+router.post('/sync-tracking', async (req, res) => {
+  try {
+    const orders = await Order.find({
+      awb: { $exists: true, $ne: null, $ne: '' },
+      shipmentStatus: { $nin: ['Delivered', 'RTO', 'Cancelled'] }
+    });
+
+    const results = { updated: 0, failed: 0, total: orders.length, details: [] };
+    const statusOrder = ['Pending', 'Created', 'Ready to Ship', 'In Transit', 'Out for Delivery', 'Delivered', 'RTO', 'Cancelled'];
+
+    for (const order of orders) {
+      try {
+        const tracking = await trackDelhiveryShipment(order.awb);
+        const newStatus = tracking.status;
+
+        if (newStatus && newStatus !== order.shipmentStatus) {
+          const currentIdx = statusOrder.indexOf(order.shipmentStatus);
+          const newIdx = statusOrder.indexOf(newStatus);
+
+          if (newIdx > currentIdx || newStatus === 'RTO' || newStatus === 'Cancelled') {
+            const oldStatus = order.shipmentStatus;
+            order.shipmentStatus = newStatus;
+            if (newStatus === 'Delivered') order.orderStatus = 'Completed';
+            await order.save();
+            results.updated++;
+            results.details.push({ orderId: order._id, awb: order.awb, from: oldStatus, to: newStatus });
+          }
+        }
+      } catch (err) {
+        results.failed++;
+        results.details.push({ orderId: order._id, awb: order.awb, error: err.message });
+      }
+    }
+
+    res.json({ success: true, ...results });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
