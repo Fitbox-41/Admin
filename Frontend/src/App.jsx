@@ -8,6 +8,7 @@ import Orders from './pages/Orders';
 import Refunds from './pages/Refunds';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
+import StoreSettings from './pages/StoreSettings';
 
 import { useState } from 'react';
 
@@ -58,8 +59,8 @@ function App() {
               
               {/* Placeholders for other routes */}
               <Route path="customers" element={<Customers />} />
-              <Route path="payments" element={<Placeholder title="Payments" />} />
-              <Route path="analytics" element={<Placeholder title="Analytics" />} />
+              <Route path="store-settings" element={<StoreSettings />} />
+
               <Route path="settings" element={<Settings />} />
               
               {/* Catch all */}

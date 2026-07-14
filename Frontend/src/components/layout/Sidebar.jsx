@@ -13,7 +13,8 @@ import {
   LogOut,
   X,
   Shield,
-  Undo2
+  Undo2,
+  Truck
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -30,10 +31,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Products', path: '/products', icon: <ShoppingBag size={20} /> },
     { name: 'Orders', path: '/orders', icon: <ShoppingCart size={20} /> },
     { name: 'Customers', path: '/customers', icon: <Users size={20} /> },
-    { name: 'Payments', path: '/payments', icon: <CreditCard size={20} /> },
-    { name: 'Analytics', path: '/analytics', icon: <BarChart3 size={20} /> },
+
     { name: 'Refunds', path: '/refunds', icon: <Undo2 size={20} /> },
     { name: 'Admin Users', path: '/users', icon: <Shield size={20} /> },
+    { name: 'Store Settings', path: '/store-settings', icon: <Truck size={20} /> },
   ];
 
   return (
