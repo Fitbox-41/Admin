@@ -3,9 +3,14 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const MONGO_URI = 'mongodb+srv://fitboxsports01_db_user:e9wvew9zBoJSoaKL@website.vrwfobf.mongodb.net/?appName=Website';
-const DELHIVERY_API_KEY = process.env.DELHIVERY_API_KEY || 'e30b2863dfdfd3b1ddc9fe11c701d57feef2b773';
+const MONGO_URI = process.env.MONGO_URI;
+const DELHIVERY_API_KEY = process.env.DELHIVERY_API_KEY;
 const DELHIVERY_BASE_URL = process.env.DELHIVERY_BASE_URL || 'https://track.delhivery.com';
+
+if (!MONGO_URI || !DELHIVERY_API_KEY) {
+  console.error('Missing MONGO_URI or DELHIVERY_API_KEY in environment variables.');
+  process.exit(1);
+}
 
 await mongoose.connect(MONGO_URI);
 console.log('Connected to MongoDB\n');
