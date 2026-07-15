@@ -486,10 +486,10 @@ router.get('/:id/cancel-status', async (req, res) => {
       isCancelledOnDelhivery,
       trackError: trackError || null,
       message: isCancelledOnDelhivery
-        ? '✅ Shipment is confirmed cancelled on Delhivery.'
+        ? ' Shipment is confirmed cancelled on Delhivery.'
         : trackError
-          ? '⚠️ Could not reach Delhivery API to verify.'
-          : '❌ Shipment is NOT yet cancelled on Delhivery — you may need to cancel it manually.'
+          ? ' Could not reach Delhivery API to verify.'
+          : ' Shipment is NOT yet cancelled on Delhivery — you may need to cancel it manually.'
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

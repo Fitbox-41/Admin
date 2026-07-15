@@ -2,7 +2,7 @@
 
 A modern, responsive, and aesthetically pleasing administrative dashboard for the FitBox sports ecosystem, built with React, Vite, and Tailwind CSS.
 
-## 🌟 Features
+##  Features
 
 - **Modern Glassmorphism UI**: Beautiful, translucent interface elements that provide a premium feel.
 - **Dynamic Dark/Light Mode**: Seamlessly switches themes for optimal viewing in any lighting condition.
@@ -10,7 +10,7 @@ A modern, responsive, and aesthetically pleasing administrative dashboard for th
 - **Interactive Data Visualization**: Comprehensive charts and metrics for quick insights.
 - **High-Performance**: Lightning-fast load times powered by Vite.
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Frontend Framework**: React 19
 - **Build Tool**: Vite
@@ -19,7 +19,7 @@ A modern, responsive, and aesthetically pleasing administrative dashboard for th
 - **Charts**: Recharts
 - **Routing**: React Router
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -53,7 +53,7 @@ npm run dev
 
 The application will be available at `http://localhost:5173`.
 
-## 📦 Building for Production
+##  Building for Production
 
 To create a production-ready build:
 
@@ -67,7 +67,7 @@ You can preview the production build locally with:
 npm run preview
 ```
 
-## 🎨 Design System
+##  Design System
 
 The application uses a custom design system built on top of Tailwind CSS, utilizing CSS variables for consistent theming and easy customization. Key features include:
 
@@ -75,6 +75,6 @@ The application uses a custom design system built on top of Tailwind CSS, utiliz
 - Tailwind `@theme` configuration
 - Reusable `glass` and `glass-dark` utility classes for unified component design
 
-## 📄 License
+##  License
 
 This project is proprietary and confidential.

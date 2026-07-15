@@ -147,7 +147,7 @@ const Orders = () => {
       const res = await fetch(`${API_URL}/orders/sync-cancellations`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        alert(`✅ Fixed: ${data.fixed} order(s) cancelled on Delhivery.${data.stillFailing > 0 ? `\n⚠️ ${data.stillFailing} still failing — check Delhivery dashboard manually.` : ''}`);
+        alert(` Fixed: ${data.fixed} order(s) cancelled on Delhivery.${data.stillFailing > 0 ? `\n ${data.stillFailing} still failing — check Delhivery dashboard manually.` : ''}`);
         fetchOrders(false);
       } else {
         alert('Sync failed: ' + (data.message || 'Unknown error'));
@@ -249,9 +249,9 @@ const Orders = () => {
 
     setIsBulkPickupLoading(false);
     if (failCount === 0) {
-      alert(`✅ Pickup scheduled for ${successCount} order(s). Status updated to Ready to Ship.`);
+      alert(` Pickup scheduled for ${successCount} order(s). Status updated to Ready to Ship.`);
     } else {
-      alert(`⚠️ ${successCount} succeeded, ${failCount} failed. Check console for details.`);
+      alert(` ${successCount} succeeded, ${failCount} failed. Check console for details.`);
     }
   };
 
@@ -368,7 +368,7 @@ const Orders = () => {
     <!-- Header -->
     <div class="header" style="height:55px; padding:6px 12px;">
       <img src="${window.location.origin}/fitbox-100-x42_logo.webp" alt="FitBox Sports" style="height:36px; object-fit:contain; display:block;" />
-      <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/Delhivery_Logo.png" alt="Delhivery" style="height:26px; object-fit:contain; display:block;" />
+      <img src="${window.location.origin}/Images/delhivery-logo.png" alt="Delhivery" style="height:26px; object-fit:contain; display:block;" />
     </div>
 
     <!-- AWB + Main Barcode -->
@@ -1072,10 +1072,10 @@ const Orders = () => {
                       const cancelRes = await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: 'POST' });
                       const cancelData = await cancelRes.json();
                       if (cancelRes.ok && cancelData.success) {
-                        alert('✅ Cancellation request sent to Delhivery successfully.');
+                        alert(' Cancellation request sent to Delhivery successfully.');
                         fetchOrders(false);
                       } else {
-                        alert('⚠️ Could not send cancellation to Delhivery: ' + (cancelData.message || 'Unknown error'));
+                        alert(' Could not send cancellation to Delhivery: ' + (cancelData.message || 'Unknown error'));
                       }
                     } catch (err) {
                       alert('Failed to send cancellation request.');
