@@ -35,6 +35,10 @@ const Products = () => {
 
   useEffect(() => {
     fetchProducts();
+
+    // Listen for global Topbar refresh trigger
+    window.addEventListener('refreshData', fetchProducts);
+    return () => window.removeEventListener('refreshData', fetchProducts);
   }, []);
 
   // Derive unique categories

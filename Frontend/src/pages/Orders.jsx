@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Eye, ChevronDown, ChevronUp, X, Printer, FileDown, Truck, RotateCw } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronUp, Printer, FileDown, Truck, RotateCw, PackageCheck, ShieldCheck } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -14,6 +14,7 @@ const Orders = () => {
   const [subTab, setSubTab] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [isBulkPickupLoading, setIsBulkPickupLoading] = useState(false);
   const prevOrderIds = useRef(new Set());
   const [newOrderIds, setNewOrderIds] = useState(new Set());
 
@@ -83,34 +84,296 @@ const Orders = () => {
     }
   };
 
-  const handleSchedulePickup = async (orderId) => {
-    try {
-      const res = await fetch(`${API_URL}/orders/${orderId}/pickup`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        alert('Pickup scheduled successfully with Delhivery!');
-      } else {
-        alert('Failed to schedule pickup: ' + (data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Failed to schedule pickup', error);
-      alert('Failed to schedule pickup');
+  // Orders eligible for bulk pickup: has AWB, status is Ordered or Created (not yet shipped)
+  const pickupEligibleOrders = orders.filter(o =>
+    o.awb &&
+    (o.shipmentStatus === 'Ordered' || o.shipmentStatus === 'Created')
+  );
+
+  const handleBulkSchedulePickup = async () => {
+    if (pickupEligibleOrders.length === 0) {
+      alert('No unshipped orders with AWB to schedule pickup for.');
+      return;
+    }
+    if (!window.confirm(`Schedule pickup for ${pickupEligibleOrders.length} order(s) with Delhivery?`)) return;
+
+    setIsBulkPickupLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+    const updatedIds = [];
+
+    await Promise.all(
+      pickupEligibleOrders.map(async (order) => {
+        try {
+          const res = await fetch(`${API_URL}/orders/${order._id}/pickup`, { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            successCount++;
+            updatedIds.push(order._id);
+          } else {
+            failCount++;
+            console.error(`Pickup failed for ${order._id}:`, data.message);
+          }
+        } catch (err) {
+          failCount++;
+          console.error(`Pickup error for ${order._id}:`, err);
+        }
+      })
+    );
+
+    // Update status to 'Ready to Ship' for all successfully scheduled orders
+    if (updatedIds.length > 0) {
+      await Promise.all(
+        updatedIds.map(id =>
+          fetch(`${API_URL}/orders/${id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shipmentStatus: 'Ready to Ship' })
+          })
+        )
+      );
+      setOrders(prev =>
+        prev.map(o => updatedIds.includes(o._id) ? { ...o, shipmentStatus: 'Ready to Ship' } : o)
+      );
+    }
+
+    setIsBulkPickupLoading(false);
+    if (failCount === 0) {
+      alert(`✅ Pickup scheduled for ${successCount} order(s). Status updated to Ready to Ship.`);
+    } else {
+      alert(`⚠️ ${successCount} succeeded, ${failCount} failed. Check console for details.`);
     }
   };
 
-  const handlePrintLabel = async (orderId) => {
+  const handleVerifyDelhiveryCancel = async (orderId) => {
     try {
-      const res = await fetch(`${API_URL}/orders/${orderId}/label`);
+      const res = await fetch(`${API_URL}/orders/${orderId}/cancel-status`);
       const data = await res.json();
-      if (res.ok && data.success && data.pdfUrl) {
-        window.open(data.pdfUrl, '_blank');
-      } else {
-        alert('Failed to fetch label: ' + (data.message || 'Unknown error'));
+      if (!res.ok) {
+        alert('Error checking cancel status: ' + (data.message || 'Unknown error'));
+        return;
       }
-    } catch (error) {
-      console.error('Failed to fetch label', error);
-      alert('Failed to fetch label');
+      const msg = [
+        data.message,
+        data.awb ? `AWB: ${data.awb}` : null,
+        data.delhiveryStatus ? `Delhivery status: ${data.delhiveryStatus}` : null,
+        data.dbStatus ? `DB status: ${data.dbStatus}` : null,
+      ].filter(Boolean).join('\n');
+      alert(msg);
+
+      // If NOT cancelled on Delhivery, offer to force-cancel
+      if (data.awb && !data.isCancelledOnDelhivery && !data.trackError) {
+        const confirmed = window.confirm(
+          'Delhivery has NOT cancelled this shipment yet.\n\nDo you want to send a cancellation request to Delhivery now?'
+        );
+        if (confirmed) {
+          const cancelRes = await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: 'POST' });
+          const cancelData = await cancelRes.json();
+          if (cancelRes.ok && cancelData.success) {
+            alert('✅ Cancellation request sent to Delhivery successfully.');
+            fetchOrders(false);
+          } else {
+            alert('⚠️ Could not send cancellation to Delhivery: ' + (cancelData.message || 'Unknown error'));
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Verify cancel error:', err);
+      alert('Failed to check cancellation status.');
     }
+  };
+
+  const handlePrintLabel = (order) => {
+    if (!order.awb) {
+      alert('Label not available — no AWB assigned yet.');
+      return;
+    }
+
+    const addr = order.shippingAddress || {};
+    const customerName = (addr.name || order.customerName || 'Customer').toUpperCase();
+    const street = addr.street || '';
+    const city = addr.city || '';
+    const state = addr.state || '';
+    const zip = addr.zip || '';
+    const phone = addr.phone || order.customerPhone || '';
+    const isPrepaid = order.paymentMode !== 'COD';
+    const paymentLabel = isPrepaid ? 'Pre-paid - Surface' : 'Cash on Delivery (COD)';
+    const amount = `INR ${order.totalAmount || 0}`;
+    const dateObj = new Date(order.createdAt || Date.now());
+    const dateStr = dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      + ' | ' + dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+    // Items table rows
+    const itemRows = (order.items || []).map(item => {
+      const price = Number(String(item.price || 0).replace(/[^0-9.-]+/g, ''));
+      const qty = item.quantity || 1;
+      const variant = item.selectedVariant ? ` (${item.selectedVariant})` : '';
+      const size = item.selectedSize ? ` - ${item.selectedSize}` : '';
+      return `<tr>
+        <td style="padding:4px 8px;border:1px solid #ccc;font-size:10px">${item.name}${variant}${size}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-size:10px">${qty}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-size:10px">&#8377;${price}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-size:10px">&#8377;${price * qty}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shipping Label - ${order.awb}</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; background:#f0f0f0; display:flex; justify-content:center; padding:20px; }
+    .label { width:385px; background:#fff; border:2px solid #000; }
+    .header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:2px solid #000; }
+    .fitbox-logo { font-size:22px; font-weight:900; font-style:italic; line-height:1; }
+    .fitbox-logo .fit { color:#cc2200; }
+    .fitbox-logo .box { background:#cc2200; color:#fff; padding:0 3px; border-radius:2px; }
+    .fitbox-sub { font-size:8px; color:#666; letter-spacing:2px; font-weight:400; font-style:normal; display:block; margin-top:1px; }
+    .delhivery-logo { font-size:26px; font-weight:900; font-style:italic; color:#111; letter-spacing:-1px; }
+    .delhivery-logo span { color:#e63; }
+    .awb-section { padding:8px 12px 4px; }
+    .awb-label { font-size:12px; font-weight:bold; margin-bottom:5px; }
+    .barcode-wrap { text-align:center; }
+    .barcode-footer { display:flex; justify-content:space-between; align-items:center; padding:3px 12px 6px; border-bottom:2px solid #000; font-size:11px; }
+    .hub-code { font-weight:900; font-size:14px; letter-spacing:1px; }
+    .ship-row { display:flex; border-bottom:1px solid #000; }
+    .ship-left { flex:1.4; padding:8px 12px; border-right:1px solid #000; }
+    .ship-right { flex:1; padding:8px 12px; }
+    .to-label { font-size:10px; color:#555; margin-bottom:2px; }
+    .cust-name { font-size:15px; font-weight:900; margin-bottom:3px; }
+    .addr-text { font-size:10px; color:#333; line-height:1.45; }
+    .city-text { font-size:11px; font-weight:bold; margin-top:3px; }
+    .pin-text { font-size:12px; font-weight:900; margin-top:2px; }
+    .phone-text { font-size:10px; color:#555; margin-top:4px; }
+    .pay-label { font-size:10px; color:#555; margin-bottom:3px; }
+    .pay-value { font-size:15px; font-weight:900; }
+    .date-label { font-size:10px; color:#555; margin-top:10px; margin-bottom:2px; }
+    .date-value { font-size:10px; }
+    .seller-row { display:flex; border-bottom:1px solid #000; }
+    .seller-left { flex:1.4; padding:8px 12px; border-right:1px solid #000; font-size:10px; }
+    .seller-right { flex:1; padding:8px 12px; text-align:center; }
+    .orderid-text { font-size:9px; color:#444; word-break:break-all; margin-bottom:4px; }
+    .items-section { padding:8px 12px; border-bottom:1px solid #000; }
+    .items-title { font-size:10px; font-weight:bold; margin-bottom:5px; text-transform:uppercase; color:#333; }
+    .footer-row { display:flex; justify-content:space-between; align-items:center; padding:5px 12px; font-size:9px; color:#444; }
+    @media print {
+      body { background:white; padding:0; }
+      .label { border:2px solid #000; }
+      @page { size:A5; margin:5mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="label">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="fitbox-logo">
+        <span class="fit">fit</span><span class="box">BOX</span>
+        <span class="fitbox-sub">SPORTS</span>
+      </div>
+      <div class="delhivery-logo">DELHIVER<span>Y</span></div>
+    </div>
+
+    <!-- AWB + Main Barcode -->
+    <div class="awb-section">
+      <div class="awb-label">AWB# ${order.awb}</div>
+      <div class="barcode-wrap"><svg id="bc-awb"></svg></div>
+    </div>
+
+    <!-- Barcode footer: PIN | AWB | HUB -->
+    <div class="barcode-footer">
+      <span>${zip}</span>
+      <span style="font-size:10px">AWB# ${order.awb}</span>
+      <span class="hub-code">${state.toUpperCase().replace('&','').slice(0,3).trim()}/${city.toUpperCase().slice(0,3)}</span>
+    </div>
+
+    <!-- Ship to + Payment -->
+    <div class="ship-row">
+      <div class="ship-left">
+        <div class="to-label">Ship to -</div>
+        <div class="cust-name">${customerName}</div>
+        <div class="addr-text">${street}</div>
+        <div class="city-text">${city}${state ? ' (' + state + ')' : ''}</div>
+        <div class="pin-text">PIN - ${zip}</div>
+        ${phone ? `<div class="phone-text">Ph: ${phone}</div>` : ''}
+      </div>
+      <div class="ship-right">
+        <div class="pay-label">${paymentLabel}</div>
+        <div class="pay-value">${amount}</div>
+        <div class="date-label">Date</div>
+        <div class="date-value">${dateStr}</div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div class="items-section">
+      <div class="items-title">Order Items</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#f5f5f5">
+            <th style="padding:4px 8px;border:1px solid #ccc;text-align:left;font-size:10px">Product</th>
+            <th style="padding:4px 8px;border:1px solid #ccc;text-align:center;font-size:10px">Qty</th>
+            <th style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-size:10px">Price</th>
+            <th style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-size:10px">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+        <tfoot>
+          <tr style="background:#fff3ee">
+            <td colspan="3" style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold">Order Total</td>
+            <td style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:bold">&#8377;${order.totalAmount}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Seller + Order ID barcode -->
+    <div class="seller-row">
+      <div class="seller-left">
+        <div>Seller: <strong>FITBOX SPORTS</strong></div>
+        <div>41, Warirana Industrial Complex</div>
+        <div>Jalandhar, Punjab - 144021</div>
+      </div>
+      <div class="seller-right">
+        <div class="orderid-text">${order._id}</div>
+        <svg id="bc-orderid"></svg>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-row">
+      <span>Return Address: 41, Warirana Industrial Complex, Jalandhar - 144021</span>
+      <span style="white-space:nowrap;margin-left:8px">Page 1 of 1</span>
+    </div>
+
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      JsBarcode('#bc-awb', '${order.awb}', {
+        format: 'CODE128', width: 1.6, height: 55, displayValue: false, margin: 0
+      });
+      JsBarcode('#bc-orderid', '${order._id.slice(-12)}', {
+        format: 'CODE128', width: 1.2, height: 35, displayValue: false, margin: 0
+      });
+      // Fix SVG widths after render
+      document.querySelectorAll('svg').forEach(function(svg) {
+        svg.style.width = '100%';
+        svg.style.display = 'block';
+      });
+      setTimeout(function() { window.print(); }, 600);
+    });
+  <\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=500,height=750');
+    win.document.write(html);
+    win.document.close();
   };
 
   const handleCreateShipment = async (orderId) => {
@@ -259,14 +522,33 @@ const Orders = () => {
       `}</style>
 
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-4 flex-wrap">
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-text-dark">Orders</h1>
-          {newOrderIds.size > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-primary text-white new-badge-anim shadow">
-              <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-              {newOrderIds.size} New Order{newOrderIds.size > 1 ? 's' : ''}
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {newOrderIds.size > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-primary text-white new-badge-anim shadow">
+                <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
+                {newOrderIds.size} New Order{newOrderIds.size > 1 ? 's' : ''}
+              </span>
+            )}
+            <button
+              onClick={handleBulkSchedulePickup}
+              disabled={isBulkPickupLoading || pickupEligibleOrders.length === 0}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm
+                ${ pickupEligibleOrders.length > 0
+                  ? 'bg-[#f0503c] text-white hover:bg-[#d94836] active:scale-95'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              title={pickupEligibleOrders.length > 0
+                ? `Schedule pickup for ${pickupEligibleOrders.length} unshipped order(s)`
+                : 'No unshipped orders with AWB'}
+            >
+              {isBulkPickupLoading
+                ? <RotateCw size={15} className="animate-spin" />
+                : <PackageCheck size={15} />}
+              {isBulkPickupLoading ? 'Scheduling...' : `Schedule Pickup${ pickupEligibleOrders.length > 0 ? ` (${pickupEligibleOrders.length})` : '' }`}
+            </button>
+          </div>
         </div>
 
         {/* Top-Level Tabs */}
@@ -424,7 +706,7 @@ const Orders = () => {
 
                                {/* Print Label */}
                               <button
-                                onClick={() => handlePrintLabel(order._id)}
+                                 onClick={() => handlePrintLabel(order)}
                                 disabled={!order.awb}
                                 className={`inline-flex items-center gap-1 text-sm font-medium transition-colors ${order.awb ? 'text-indigo-600 hover:text-indigo-800 hover:underline' : 'text-text-mid cursor-not-allowed opacity-50'}`}
                                 title={order.awb ? 'Print shipping label' : 'Label not available'}
@@ -442,6 +724,18 @@ const Orders = () => {
                                 >
                                   <Truck size={14} />
                                   Generate AWB
+                                </button>
+                              )}
+
+                              {/* Verify Delhivery Cancellation — only for cancelled orders with AWB */}
+                              {order.awb && (order.orderStatus === 'Cancelled' || order.shipmentStatus === 'Cancelled') && (
+                                <button
+                                  onClick={() => handleVerifyDelhiveryCancel(order._id)}
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-purple-600 hover:text-purple-800 hover:underline transition-colors"
+                                  title="Check if Delhivery has cancelled this shipment"
+                                >
+                                  <ShieldCheck size={14} />
+                                  Verify Cancel
                                 </button>
                               )}
 
@@ -520,17 +814,9 @@ const Orders = () => {
                                       </select>
                                     </div>
                                     {order.awb ? (
-                                      <div className="flex items-center justify-between mt-2">
-                                        <div>
-                                          <span className="text-text-mid">AWB:</span>{' '}
-                                          <span className="text-text-dark font-mono font-medium">{order.awb}</span>
-                                        </div>
-                                        <button
-                                          onClick={() => handleSchedulePickup(order._id)}
-                                          className="text-xs px-3 py-1.5 bg-[#f0503c] text-white rounded font-semibold hover:bg-[#d94836] transition-colors"
-                                        >
-                                          Schedule Pickup
-                                        </button>
+                                      <div className="mt-2">
+                                        <span className="text-text-mid">AWB:</span>{' '}
+                                        <span className="text-text-dark font-mono font-medium">{order.awb}</span>
                                       </div>
                                     ) : (
                                       (order.paymentStatus === 'Paid' || order.paymentMode === 'COD' || order.paymentStatus === 'COD - Pay on Delivery') && (

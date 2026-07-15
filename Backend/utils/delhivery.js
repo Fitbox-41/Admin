@@ -201,3 +201,29 @@ export const createDelhiveryShipment = async (order) => {
     throw new Error('Delhivery shipment creation failed: ' + (error.response?.data ? JSON.stringify(error.response.data) : error.message));
   }
 };
+
+/**
+ * Cancel a Delhivery shipment by AWB number.
+ * Uses the Delhivery Cancel API: POST /api/p/edit
+ * Only works for shipments in Manifested, In Transit, Pending, Open, or Scheduled status.
+ */
+export const cancelDelhiveryShipment = async (awb) => {
+  try {
+    const response = await axios.post(
+      `${process.env.DELHIVERY_BASE_URL}/api/p/edit`,
+      JSON.stringify({ waybill: awb, cancellation: 'true' }),
+      {
+        headers: {
+          'Authorization': `Token ${process.env.DELHIVERY_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log(`Delhivery shipment cancelled for AWB: ${awb}`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Delhivery cancellation failed for AWB:', awb, error.response?.data || error.message);
+    // Don't throw — return error object so caller can decide
+    return { error: true, message: error.response?.data || error.message };
+  }
+};

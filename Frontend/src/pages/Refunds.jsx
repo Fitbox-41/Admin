@@ -28,6 +28,10 @@ const Refunds = () => {
 
   useEffect(() => {
     fetchRefunds();
+
+    // Listen for global Topbar refresh trigger
+    window.addEventListener('refreshData', fetchRefunds);
+    return () => window.removeEventListener('refreshData', fetchRefunds);
   }, []);
 
   const handleRefundDone = async (orderId) => {

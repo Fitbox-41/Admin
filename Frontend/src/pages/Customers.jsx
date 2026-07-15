@@ -25,6 +25,10 @@ const Customers = () => {
 
   useEffect(() => {
     fetchCustomers();
+
+    // Listen for global Topbar refresh trigger
+    window.addEventListener('refreshData', fetchCustomers);
+    return () => window.removeEventListener('refreshData', fetchCustomers);
   }, []);
 
   const filteredCustomers = customers.filter(c => 

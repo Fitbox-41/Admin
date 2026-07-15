@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
-import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel, createDelhiveryShipment } from '../utils/delhivery.js';
+import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel, createDelhiveryShipment, cancelDelhiveryShipment } from '../utils/delhivery.js';
 
 const router = express.Router();
 
@@ -406,6 +406,86 @@ router.post('/:id/shipment', async (req, res) => {
   } catch (error) {
     console.error('Manual shipment creation error:', error.message);
     res.status(500).json({ message: 'Failed to create shipment', error: error.message });
+  }
+});
+
+// POST /api/orders/:id/cancel — Cancel order + cancel on Delhivery if AWB exists
+router.post('/:id/cancel', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    let delhiveryResult = null;
+
+    // Attempt Delhivery cancellation if AWB exists and shipment is not already delivered/RTO
+    if (order.awb && !['Delivered', 'RTO'].includes(order.shipmentStatus)) {
+      delhiveryResult = await cancelDelhiveryShipment(order.awb);
+    }
+
+    // Update DB regardless of Delhivery outcome
+    order.orderStatus = 'Cancelled';
+    order.shipmentStatus = 'Cancelled';
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+      delhivery: delhiveryResult,
+      order
+    });
+  } catch (error) {
+    console.error('Cancel order error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/orders/:id/cancel-status — Verify Delhivery cancellation status for a cancelled order
+router.get('/:id/cancel-status', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    if (!order.awb) {
+      return res.json({
+        success: true,
+        awb: null,
+        dbStatus: order.shipmentStatus,
+        delhiveryStatus: null,
+        message: 'No AWB — shipment was never created on Delhivery.'
+      });
+    }
+
+    // Fetch live status from Delhivery
+    let delhiveryStatus = null;
+    let delhiveryRaw = null;
+    let trackError = null;
+    try {
+      const tracking = await trackDelhiveryShipment(order.awb);
+      delhiveryStatus = tracking.delhiveryStatus;
+      delhiveryRaw = tracking.status; // mapped status
+    } catch (err) {
+      trackError = err.message;
+    }
+
+    const isCancelledOnDelhivery = delhiveryRaw === 'Cancelled' ||
+      (delhiveryStatus && delhiveryStatus.toLowerCase().includes('cancel'));
+
+    res.json({
+      success: true,
+      awb: order.awb,
+      dbStatus: order.shipmentStatus,
+      delhiveryStatus,
+      delhiveryStatusRaw: delhiveryRaw,
+      isCancelledOnDelhivery,
+      trackError: trackError || null,
+      message: isCancelledOnDelhivery
+        ? '✅ Shipment is confirmed cancelled on Delhivery.'
+        : trackError
+          ? '⚠️ Could not reach Delhivery API to verify.'
+          : '❌ Shipment is NOT yet cancelled on Delhivery — you may need to cancel it manually.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
