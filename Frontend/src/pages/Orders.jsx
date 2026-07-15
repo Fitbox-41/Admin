@@ -57,6 +57,7 @@ const Orders = () => {
   const [isBulkPickupLoading, setIsBulkPickupLoading] = useState(false);
   const [isSyncingCancellations, setIsSyncingCancellations] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState(new Set());
+  const [verifyCancelModal, setVerifyCancelModal] = useState(null);
   const prevOrderIds = useRef(new Set());
   const [newOrderIds, setNewOrderIds] = useState(new Set());
 
@@ -262,30 +263,16 @@ const Orders = () => {
         alert('Error checking cancel status: ' + (data.message || 'Unknown error'));
         return;
       }
-      const msg = [
-        data.message,
-        data.awb ? `AWB: ${data.awb}` : null,
-        data.delhiveryStatus ? `Delhivery status: ${data.delhiveryStatus}` : null,
-        data.dbStatus ? `DB status: ${data.dbStatus}` : null,
-      ].filter(Boolean).join('\n');
-      alert(msg);
-
-      // If NOT cancelled on Delhivery, offer to force-cancel
-      if (data.awb && !data.isCancelledOnDelhivery && !data.trackError) {
-        const confirmed = window.confirm(
-          'Delhivery has NOT cancelled this shipment yet.\n\nDo you want to send a cancellation request to Delhivery now?'
-        );
-        if (confirmed) {
-          const cancelRes = await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: 'POST' });
-          const cancelData = await cancelRes.json();
-          if (cancelRes.ok && cancelData.success) {
-            alert('✅ Cancellation request sent to Delhivery successfully.');
-            fetchOrders(false);
-          } else {
-            alert('⚠️ Could not send cancellation to Delhivery: ' + (cancelData.message || 'Unknown error'));
-          }
-        }
-      }
+      // Set modal state instead of using native alerts
+      setVerifyCancelModal({
+        orderId,
+        message: data.message,
+        awb: data.awb,
+        delhiveryStatus: data.delhiveryStatus,
+        dbStatus: data.dbStatus,
+        isCancelledOnDelhivery: data.isCancelledOnDelhivery,
+        trackError: data.trackError
+      });
     } catch (err) {
       console.error('Verify cancel error:', err);
       alert('Failed to check cancellation status.');
@@ -1035,6 +1022,74 @@ const Orders = () => {
           </div>
         </div>
       </div>
+
+      {/* Verify Cancel Custom Modal */}
+      {verifyCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-border animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-purple-700 mb-4">
+              <ShieldCheck className="w-8 h-8" />
+              <h3 className="text-lg font-bold text-text-dark">Delhivery Verification</h3>
+            </div>
+            
+            <div className="space-y-3 my-4 text-sm text-text-mid">
+              <div className={`p-3 rounded-xl border font-medium ${
+                verifyCancelModal.isCancelledOnDelhivery 
+                  ? 'bg-green-50 text-green-800 border-green-200' 
+                  : 'bg-red-50 text-red-800 border-red-200'
+              }`}>
+                {verifyCancelModal.message}
+              </div>
+              
+              <div className="flex justify-between py-2 border-b border-border">
+                <span>AWB Number:</span>
+                <span className="font-semibold text-text-dark font-mono text-xs">{verifyCancelModal.awb || '—'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border">
+                <span>Delhivery Status:</span>
+                <span className="font-semibold text-text-dark capitalize">{verifyCancelModal.delhiveryStatus || '—'}</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span>Database Status:</span>
+                <span className="font-semibold text-text-dark">{verifyCancelModal.dbStatus || '—'}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setVerifyCancelModal(null)}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-bg hover:bg-border text-text-dark transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              
+              {verifyCancelModal.awb && !verifyCancelModal.isCancelledOnDelhivery && !verifyCancelModal.trackError && (
+                <button
+                  onClick={async () => {
+                    const orderId = verifyCancelModal.orderId;
+                    setVerifyCancelModal(null);
+                    try {
+                      const cancelRes = await fetch(`${API_URL}/orders/${orderId}/cancel`, { method: 'POST' });
+                      const cancelData = await cancelRes.json();
+                      if (cancelRes.ok && cancelData.success) {
+                        alert('✅ Cancellation request sent to Delhivery successfully.');
+                        fetchOrders(false);
+                      } else {
+                        alert('⚠️ Could not send cancellation to Delhivery: ' + (cancelData.message || 'Unknown error'));
+                      }
+                    } catch (err) {
+                      alert('Failed to send cancellation request.');
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer"
+                >
+                  Force Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
