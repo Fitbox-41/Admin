@@ -459,16 +459,23 @@ router.get('/:id/cancel-status', async (req, res) => {
     let delhiveryStatus = null;
     let delhiveryRaw = null;
     let trackError = null;
+    let isCancelledOnDelhivery = false;
     try {
       const tracking = await trackDelhiveryShipment(order.awb);
       delhiveryStatus = tracking.delhiveryStatus;
       delhiveryRaw = tracking.status; // mapped status
+      
+      const instructions = tracking.instructions || '';
+      const code = tracking.statusCode || '';
+      
+      isCancelledOnDelhivery = 
+        delhiveryRaw === 'Cancelled' ||
+        (delhiveryStatus && delhiveryStatus.toLowerCase().includes('cancel')) ||
+        (instructions && instructions.toLowerCase().includes('cancel')) ||
+        code === 'DTUP-210';
     } catch (err) {
       trackError = err.message;
     }
-
-    const isCancelledOnDelhivery = delhiveryRaw === 'Cancelled' ||
-      (delhiveryStatus && delhiveryStatus.toLowerCase().includes('cancel'));
 
     res.json({
       success: true,
@@ -520,6 +527,21 @@ router.post('/sync-cancellations', async (req, res) => {
     }));
 
     res.json({ success: true, ...results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/orders/:id/refund — Mark an order as manually refunded
+router.put('/:id/refund', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    order.refunded = 'yes';
+    await order.save();
+
+    res.json({ success: true, message: 'Order marked as refunded successfully', order });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

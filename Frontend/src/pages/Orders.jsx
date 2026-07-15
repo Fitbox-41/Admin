@@ -379,12 +379,9 @@ const Orders = () => {
   <div class="label">
 
     <!-- Header -->
-    <div class="header">
-      <div class="fitbox-logo">
-        <span class="fit">fit</span><span class="box">BOX</span>
-        <span class="fitbox-sub">SPORTS</span>
-      </div>
-      <div class="delhivery-logo">DELHIVER<span>Y</span></div>
+    <div class="header" style="height:55px; padding:6px 12px;">
+      <img src="${window.location.origin}/fitbox-100-x42_logo.webp" alt="FitBox Sports" style="height:36px; object-fit:contain; display:block;" />
+      <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/Delhivery_Logo.png" alt="Delhivery" style="height:26px; object-fit:contain; display:block;" />
     </div>
 
     <!-- AWB + Main Barcode -->
@@ -843,19 +840,27 @@ const Orders = () => {
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getShipmentStatusColor(order.shipmentStatus || 'Ordered')}`}>
                               {getShipmentStatusLabel(order.shipmentStatus || 'Ordered')}
                             </span>
-                            {/* Delhivery cancellation confirmation text — only for cancelled orders */}
+                            {/* Delhivery cancellation confirmation badge — only for cancelled orders */}
                             {(order.orderStatus === 'Cancelled' || order.shipmentStatus === 'Cancelled') && (
-                              <div className="mt-1.5 text-[10px] font-semibold leading-tight">
+                              <div className="mt-2">
                                 {order.awb ? (
                                   order.delhiveryCancelConfirmed === true ? (
-                                    <span className="text-green-600">✓ Delhivery cancelled</span>
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 inline-block whitespace-nowrap">
+                                      ✓ Delhivery Cancelled
+                                    </span>
                                   ) : order.delhiveryCancelConfirmed === false ? (
-                                    <span className="text-red-600">✗ Delhivery NOT cancelled</span>
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 inline-block whitespace-nowrap">
+                                      ✗ Delhivery Pending Cancel
+                                    </span>
                                   ) : (
-                                    <span className="text-amber-600">? Delhivery unverified</span>
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-block whitespace-nowrap">
+                                      ? Delhivery Unverified
+                                    </span>
                                   )
                                 ) : (
-                                  <span className="text-gray-400">— No shipment created</span>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-50 text-gray-500 border border-gray-200 inline-block whitespace-nowrap">
+                                    — No Shipment Created
+                                  </span>
                                 )}
                               </div>
                             )}

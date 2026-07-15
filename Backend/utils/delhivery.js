@@ -70,6 +70,7 @@ export const trackDelhiveryShipment = async (awb) => {
       status: mapDelhiveryStatus(currentStatus),
       delhiveryStatus: currentStatus,
       statusCode,
+      instructions: shipment.Status?.Instructions || '',
       scans,
       estimatedDate,
       rawData: data
