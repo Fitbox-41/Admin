@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Eye, ChevronDown, ChevronUp, X, Printer, FileDown } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronDown, ChevronUp, X, Printer, FileDown, Truck } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -101,6 +101,24 @@ const Orders = () => {
     } catch (error) {
       console.error('Failed to fetch label', error);
       alert('Failed to fetch label');
+    }
+  };
+
+  const handleCreateShipment = async (orderId) => {
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}/shipment`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Delhivery shipment created successfully!');
+        fetchOrders(false); // Refresh orders to show the new AWB
+      } else {
+        alert('Failed to create shipment: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to create shipment', error);
+      alert('Failed to create shipment');
     }
   };
 
@@ -388,7 +406,7 @@ const Orders = () => {
                                 <span className="text-sm font-medium">{isExpanded ? 'Hide' : 'View'}</span>
                               </button>
 
-                              {/* Print Label */}
+                               {/* Print Label */}
                               <button
                                 onClick={() => handlePrintLabel(order._id)}
                                 disabled={!order.awb}
@@ -398,6 +416,18 @@ const Orders = () => {
                                 <Printer size={14} />
                                 Print Label
                               </button>
+
+                              {/* Manual Generate AWB */}
+                              {!order.awb && (order.paymentStatus === 'Paid' || order.paymentMode === 'COD' || order.paymentStatus === 'COD - Pay on Delivery') && (
+                                <button
+                                  onClick={() => handleCreateShipment(order._id)}
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-orange-600 hover:text-orange-800 hover:underline transition-colors"
+                                  title="Manually create Delhivery shipment and generate AWB"
+                                >
+                                  <Truck size={14} />
+                                  Generate AWB
+                                </button>
+                              )}
 
                               {/* Download Invoice */}
                               {order.invoiceUrl && (
@@ -473,7 +503,7 @@ const Orders = () => {
                                         <option value="Cancelled">Cancelled</option>
                                       </select>
                                     </div>
-                                    {order.awb && (
+                                    {order.awb ? (
                                       <div className="flex items-center justify-between mt-2">
                                         <div>
                                           <span className="text-text-mid">AWB:</span>{' '}
@@ -486,6 +516,21 @@ const Orders = () => {
                                           Schedule Pickup
                                         </button>
                                       </div>
+                                    ) : (
+                                      (order.paymentStatus === 'Paid' || order.paymentMode === 'COD' || order.paymentStatus === 'COD - Pay on Delivery') && (
+                                        <div className="flex items-center justify-between mt-2">
+                                          <div>
+                                            <span className="text-text-mid">AWB:</span>{' '}
+                                            <span className="text-orange-600 font-semibold">Not generated</span>
+                                          </div>
+                                          <button
+                                            onClick={() => handleCreateShipment(order._id)}
+                                            className="text-xs px-3 py-1.5 bg-orange-600 text-white rounded font-semibold hover:bg-orange-700 transition-colors"
+                                          >
+                                            Generate AWB
+                                          </button>
+                                        </div>
+                                      )
                                     )}
                                     {order.paymentId && (
                                       <div>

@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
-import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel } from '../utils/delhivery.js';
+import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel, createDelhiveryShipment } from '../utils/delhivery.js';
 
 const router = express.Router();
 
@@ -369,6 +369,43 @@ router.get('/:id/label', async (req, res) => {
   } catch (error) {
     console.error('Label fetch error:', error.message);
     res.status(500).json({ message: 'Failed to fetch label', error: error.message });
+  }
+});
+
+// POST /api/orders/:id/shipment — Create Delhivery Shipment manually (AWB generation retry)
+router.post('/:id/shipment', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    
+    if (order.awb) {
+      return res.status(400).json({ message: 'Order already has an AWB: ' + order.awb });
+    }
+
+    console.log(`Manually triggering Delhivery shipment creation for order: ${order._id}`);
+    const shipment = await createDelhiveryShipment(order);
+
+    if (shipment.packages && shipment.packages.length > 0) {
+      order.awb = shipment.packages[0].waybill;
+      order.trackingUrl = `https://track.delhivery.com/p/${order.awb}`;
+      order.shipmentStatus = 'Created';
+      await order.save();
+
+      res.json({
+        success: true,
+        message: 'Delhivery shipment created successfully',
+        awb: order.awb,
+        order
+      });
+    } else {
+      res.status(400).json({
+        message: 'Delhivery API did not return any packages or waybills',
+        details: shipment
+      });
+    }
+  } catch (error) {
+    console.error('Manual shipment creation error:', error.message);
+    res.status(500).json({ message: 'Failed to create shipment', error: error.message });
   }
 });
 

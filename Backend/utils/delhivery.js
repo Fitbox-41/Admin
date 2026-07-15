@@ -129,3 +129,75 @@ export const getDelhiveryLabel = async (awb) => {
     throw new Error('Delhivery label fetch failed: ' + (error.response?.data ? JSON.stringify(error.response.data) : error.message));
   }
 };
+
+const WAREHOUSE = {
+  name: 'FitBox Sports',
+  address: '41, Warirana Industrial Complex',
+  city: 'Jalandhar',
+  state: 'Punjab',
+  pin: '144021',
+  country: 'India',
+  phone: '7347464503'
+};
+
+/**
+ * Create a Delhivery shipment for a paid order.
+ */
+export const createDelhiveryShipment = async (order) => {
+  try {
+    const format = 'json';
+    const address = order.shippingAddress || {};
+
+    // Calculate total weight of the order in grams (fallback to 500g per item if 0)
+    const totalWeight = (order.items || []).reduce(
+      (acc, item) => acc + ((item.weight || 500) * (item.quantity || 1)),
+      0
+    );
+
+    const payload = {
+      shipments: [{
+        name: address.name || order.customerName || 'Customer',
+        add: address.street || '',
+        pin: address.zip || '',
+        city: address.city || '',
+        state: address.state || '',
+        country: address.country || 'India',
+        phone: address.phone || order.customerPhone || '',
+        order: order._id.toString(),
+        weight: (totalWeight / 1000).toFixed(2), // weight in kg
+        payment_mode: order.paymentMode === 'COD' ? 'COD' : 'Prepaid',
+        cod_amount: order.paymentMode === 'COD' ? order.totalAmount : 0,
+        return_pin: WAREHOUSE.pin,
+        return_city: WAREHOUSE.city,
+        return_phone: WAREHOUSE.phone,
+        return_add: WAREHOUSE.address,
+        return_state: WAREHOUSE.state,
+        return_country: WAREHOUSE.country,
+        return_name: WAREHOUSE.name
+      }],
+      pickup_location: {
+        name: process.env.DELHIVERY_CLIENT_NAME || WAREHOUSE.name,
+        add: WAREHOUSE.address,
+        city: WAREHOUSE.city,
+        pin_code: WAREHOUSE.pin,
+        country: WAREHOUSE.country,
+        phone: WAREHOUSE.phone
+      }
+    };
+
+    const response = await axios.post(
+      `${process.env.DELHIVERY_BASE_URL}/api/cmu/create.json`,
+      `format=${format}&data=${encodeURIComponent(JSON.stringify(payload))}`,
+      {
+        headers: {
+          'Authorization': `Token ${process.env.DELHIVERY_API_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    throw new Error('Delhivery shipment creation failed: ' + (error.response?.data ? JSON.stringify(error.response.data) : error.message));
+  }
+};
