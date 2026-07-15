@@ -190,13 +190,22 @@ router.get('/', async (req, res) => {
     const validOrderMatch = { 
       createdAt: { $gte: startDate, $lte: endDate }, 
       orderStatus: { $ne: 'Cancelled' },
-      refunded: { $ne: 'yes' }
+      refunded: { $ne: 'yes' },
+      // Only count orders where the customer actually crossed the payment gateway
+      $or: [
+        { paymentMode: 'COD' },
+        { paymentStatus: 'Paid' }
+      ]
     };
 
     const prevValidOrderMatch = { 
       createdAt: { $gte: prevStartDate, $lt: prevEndDate }, 
       orderStatus: { $ne: 'Cancelled' },
-      refunded: { $ne: 'yes' }
+      refunded: { $ne: 'yes' },
+      $or: [
+        { paymentMode: 'COD' },
+        { paymentStatus: 'Paid' }
+      ]
     };
 
     // Calculate Totals for Current Period

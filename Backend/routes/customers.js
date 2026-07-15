@@ -25,7 +25,14 @@ router.get('/', async (req, res) => {
     // Compute order counts from the live 'orders' collection (source of truth)
     const ids = customers.map((c) => c._id);
     const counts = await Order.aggregate([
-      { $match: { userId: { $in: ids } } },
+      { $match: { 
+        userId: { $in: ids },
+        // Only count orders where customer crossed the payment gateway
+        $or: [
+          { paymentMode: 'COD' },
+          { paymentStatus: { $in: ['Paid', 'Failed'] } }
+        ]
+      } },
       { $group: { _id: '$userId', orderCount: { $sum: 1 } } },
     ]);
     const countMap = new Map(counts.map((c) => [String(c._id), c.orderCount]));

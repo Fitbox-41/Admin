@@ -5,6 +5,17 @@ import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel } fro
 
 const router = express.Router();
 
+// Base filter: only show orders where the customer actually crossed the gateway
+// COD orders always count (user made a deliberate choice). Online orders only
+// count once payment reached a terminal state (Paid or Failed).
+const GATEWAY_CROSSED_FILTER = {
+  $or: [
+    { paymentMode: 'COD' },
+    { paymentStatus: { $in: ['Paid', 'Failed'] } },
+    { orderStatus: 'Cancelled', paymentId: { $exists: true, $ne: null } }
+  ]
+};
+
 // GET /api/orders
 router.get('/', async (req, res) => {
   try {
@@ -13,7 +24,7 @@ router.get('/', async (req, res) => {
     const orderStatus = String(req.query.status || '').trim(); // Pending|Completed|Cancelled
     const paymentMode = String(req.query.paymentMode || '').trim(); // Online|COD
 
-    const query = {};
+    const query = { ...GATEWAY_CROSSED_FILTER };
     if (orderStatus) query.orderStatus = orderStatus;
     if (paymentMode) query.paymentMode = paymentMode;
     if (q) {
@@ -25,7 +36,9 @@ router.get('/', async (req, res) => {
       if (mongoose.isValidObjectId(q)) {
         or.push({ _id: new mongoose.Types.ObjectId(q) });
       }
-      query.$or = or;
+      // Merge $or: GATEWAY_CROSSED_FILTER uses $or, so combine via $and
+      query.$and = [{ $or: GATEWAY_CROSSED_FILTER.$or }, { $or: or }];
+      delete query.$or;
     }
 
     const orders = await Order.find(query).sort({ createdAt: -1 });
@@ -88,7 +101,7 @@ router.get('/export', async (req, res) => {
         startDate.setMonth(now.getMonth() - 1);
     }
 
-    const orders = await Order.find({ createdAt: { $gte: startDate } }).sort({ createdAt: -1 });
+    const orders = await Order.find({ createdAt: { $gte: startDate }, ...GATEWAY_CROSSED_FILTER }).sort({ createdAt: -1 });
     
     // Dynamically import exceljs to avoid issues if not used everywhere
     const ExcelJS = (await import('exceljs')).default;
