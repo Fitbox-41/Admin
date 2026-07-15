@@ -40,6 +40,14 @@ const allowedOrigins = [
   'http://localhost:3000'
 ].filter(Boolean);
 
+// Automatically add www. version of FRONTEND_URL if present
+if (process.env.FRONTEND_URL) {
+  const url = process.env.FRONTEND_URL;
+  if (url.includes('://') && !url.includes('://www.')) {
+    allowedOrigins.push(url.replace('://', '://www.'));
+  }
+}
+
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -61,20 +69,19 @@ const corsOptions = {
 // Security Middlewares
 app.use(helmet());
 app.use((req, res, next) => {
-  if (req.body) req.body = mongoSanitize.sanitize(req.body);
-  if (req.params) req.params = mongoSanitize.sanitize(req.params);
+  // Redefine req.query as writable in Express 5
   if (req.query) {
-    for (const key in req.query) {
-      if (typeof req.query[key] === 'object' && req.query[key] !== null) {
-        req.query[key] = mongoSanitize.sanitize(req.query[key]);
-      }
-      if (key.startsWith('$') || key.includes('.')) {
-        delete req.query[key];
-      }
-    }
+    const parsedQuery = req.query;
+    Object.defineProperty(req, 'query', {
+      value: parsedQuery,
+      writable: true,
+      configurable: true,
+      enumerable: true
+    });
   }
   next();
 });
+app.use(mongoSanitize());
 app.use(cors(corsOptions));
 app.use(express.json());
 
