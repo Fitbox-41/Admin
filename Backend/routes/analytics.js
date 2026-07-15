@@ -18,35 +18,164 @@ const getDateFormat = (timeRange) => {
     default: return '%Y-%m-%d';
   }
 };
+
+const getTzParts = (date, timeZone) => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date);
+  const map = {};
+  parts.forEach(p => map[p.type] = p.value);
+  return {
+    year: parseInt(map.year),
+    month: parseInt(map.month),
+    day: parseInt(map.day),
+    hour: parseInt(map.hour),
+    minute: parseInt(map.minute),
+    second: parseInt(map.second)
+  };
+};
+
+const getStartOfDayInTz = (date, timeZone) => {
+  const parts = getTzParts(date, timeZone);
+  const tzDateStr = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T00:00:00`;
+  
+  const localAsUtc = new Date(tzDateStr + 'Z');
+  const formattedParts = getTzParts(localAsUtc, timeZone);
+  const formattedAsUtc = new Date(`${formattedParts.year}-${String(formattedParts.month).padStart(2, '0')}-${String(formattedParts.day).padStart(2, '0')}T${String(formattedParts.hour).padStart(2, '0')}:${String(formattedParts.minute).padStart(2, '0')}:${String(formattedParts.second).padStart(2, '0')}Z`);
+  const offsetMs = localAsUtc.getTime() - formattedAsUtc.getTime();
+  
+  return new Date(localAsUtc.getTime() + offsetMs);
+};
+
+const getTzWeekday = (date, timeZone) => {
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' });
+  const weekday = formatter.format(date);
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return days.indexOf(weekday);
+};
+
+const adjustDays = (date, daysDiff, timeZone) => {
+  const shifted = new Date(date.getTime() + daysDiff * 24 * 60 * 60 * 1000);
+  return getStartOfDayInTz(shifted, timeZone);
+};
+
+const getStartOfMonthsAgoInTz = (date, monthsAgo, timeZone) => {
+  const parts = getTzParts(date, timeZone);
+  let year = parts.year;
+  let month = parts.month - monthsAgo;
+  while (month <= 0) {
+    month += 12;
+    year -= 1;
+  }
+  const tzDateStr = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
+  
+  const localAsUtc = new Date(tzDateStr + 'Z');
+  const formattedParts = getTzParts(localAsUtc, timeZone);
+  const formattedAsUtc = new Date(`${formattedParts.year}-${String(formattedParts.month).padStart(2, '0')}-${String(formattedParts.day).padStart(2, '0')}T${String(formattedParts.hour).padStart(2, '0')}:${String(formattedParts.minute).padStart(2, '0')}:${String(formattedParts.second).padStart(2, '0')}Z`);
+  const offsetMs = localAsUtc.getTime() - formattedAsUtc.getTime();
+  
+  return new Date(localAsUtc.getTime() + offsetMs);
+};
+
+const getTzDateBoundaries = (timeRange, timeZone) => {
+  const now = new Date();
+  const todayMidnight = getStartOfDayInTz(now, timeZone);
+  
+  let startDate;
+  let endDate = new Date(now);
+  let prevStartDate;
+  let prevEndDate;
+  
+  if (timeRange === 'today') {
+    startDate = todayMidnight;
+    prevStartDate = adjustDays(todayMidnight, -1, timeZone);
+    prevEndDate = todayMidnight;
+  } else if (timeRange === 'this-week') {
+    const weekday = getTzWeekday(todayMidnight, timeZone);
+    const daysToMonday = weekday === 0 ? -6 : 1 - weekday;
+    startDate = adjustDays(todayMidnight, daysToMonday, timeZone);
+    const sundayMidnight = adjustDays(startDate, 6, timeZone);
+    endDate = new Date(sundayMidnight.getTime() + 24 * 60 * 60 * 1000 - 1);
+    prevStartDate = adjustDays(startDate, -7, timeZone);
+    prevEndDate = startDate;
+  } else if (timeRange === 'this-month') {
+    startDate = getStartOfMonthsAgoInTz(todayMidnight, 0, timeZone);
+    const startOfNextMonth = getStartOfMonthsAgoInTz(todayMidnight, -1, timeZone);
+    endDate = new Date(startOfNextMonth.getTime() - 1);
+    prevStartDate = getStartOfMonthsAgoInTz(todayMidnight, 1, timeZone);
+    prevEndDate = startDate;
+  } else if (timeRange === 'last-3-months') {
+    startDate = getStartOfMonthsAgoInTz(todayMidnight, 3, timeZone);
+    prevStartDate = getStartOfMonthsAgoInTz(todayMidnight, 6, timeZone);
+    prevEndDate = startDate;
+  } else if (timeRange === 'last-6-months') {
+    startDate = getStartOfMonthsAgoInTz(todayMidnight, 6, timeZone);
+    prevStartDate = getStartOfMonthsAgoInTz(todayMidnight, 12, timeZone);
+    prevEndDate = startDate;
+  } else if (timeRange === 'last-year') {
+    startDate = getStartOfMonthsAgoInTz(todayMidnight, 11, timeZone);
+    prevStartDate = getStartOfMonthsAgoInTz(todayMidnight, 23, timeZone);
+    prevEndDate = startDate;
+  } else if (timeRange === 'last-5-years') {
+    startDate = getStartOfMonthsAgoInTz(todayMidnight, 60, timeZone);
+    prevStartDate = getStartOfMonthsAgoInTz(todayMidnight, 120, timeZone);
+    prevEndDate = startDate;
+  } else {
+    startDate = todayMidnight;
+    prevStartDate = adjustDays(todayMidnight, -1, timeZone);
+    prevEndDate = todayMidnight;
+  }
+  
+  return { startDate, endDate, prevStartDate, prevEndDate };
+};
+
 // Generate complete date range array
-const generateDateRange = (startDate, endDate, timeRange) => {
+const generateDateRange = (startDate, endDate, timeRange, timeZone) => {
   const dates = [];
   let current = new Date(startDate);
 
   if (timeRange === 'today') {
     while (current <= endDate) {
-      const h = current.getHours().toString().padStart(2, '0');
+      const parts = getTzParts(current, timeZone);
+      const h = parts.hour.toString().padStart(2, '0');
       dates.push(`${h}:00`);
-      current.setHours(current.getHours() + 1);
+      current = new Date(current.getTime() + 60 * 60 * 1000);
     }
   } else if (timeRange === 'this-week' || timeRange === 'this-month') {
     while (current <= endDate) {
-      const y = current.getFullYear();
-      const m = (current.getMonth() + 1).toString().padStart(2, '0');
-      const d = current.getDate().toString().padStart(2, '0');
+      const parts = getTzParts(current, timeZone);
+      const y = parts.year;
+      const m = parts.month.toString().padStart(2, '0');
+      const d = parts.day.toString().padStart(2, '0');
       dates.push(`${y}-${m}-${d}`);
-      current.setDate(current.getDate() + 1);
+      
+      current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+      current = getStartOfDayInTz(current, timeZone);
     }
   } else {
-    // months
-    current.setDate(1);
-    const endM = new Date(endDate);
-    endM.setDate(1);
-    while (current <= endM) {
-      const y = current.getFullYear();
-      const m = (current.getMonth() + 1).toString().padStart(2, '0');
-      dates.push(`${y}-${m}`);
-      current.setMonth(current.getMonth() + 1);
+    const startParts = getTzParts(startDate, timeZone);
+    const endParts = getTzParts(endDate, timeZone);
+    
+    let y = startParts.year;
+    let m = startParts.month;
+    const targetY = endParts.year;
+    const targetM = endParts.month;
+    
+    while (y < targetY || (y === targetY && m <= targetM)) {
+      dates.push(`${y}-${m.toString().padStart(2, '0')}`);
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
     }
   }
   return dates;
@@ -56,72 +185,10 @@ router.get('/', async (req, res) => {
   try {
     const { timeRange, timeZone = 'UTC' } = req.query;
     
-    const now = new Date();
-    let startDate = new Date();
-    let prevStartDate = new Date();
-    let prevEndDate = new Date();
-    
-    // Set dates based on timeRange
-    if (timeRange === 'today') {
-      startDate.setHours(0, 0, 0, 0);
-      prevStartDate = new Date(startDate);
-      prevStartDate.setDate(prevStartDate.getDate() - 1);
-      prevEndDate = new Date(startDate);
-    } else if (timeRange === 'this-week') {
-      startDate.setHours(0, 0, 0, 0);
-      const day = startDate.getDay();
-      const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-      startDate.setDate(diff); // Monday
-      
-      now.setHours(23, 59, 59, 999);
-      now.setDate(startDate.getDate() + 6); // Sunday
-      
-      prevStartDate = new Date(startDate);
-      prevStartDate.setDate(prevStartDate.getDate() - 7);
-      prevEndDate = new Date(startDate);
-    } else if (timeRange === 'this-month') {
-      startDate.setHours(0, 0, 0, 0);
-      startDate.setDate(1); // 1st of current month
-      
-      now.setHours(23, 59, 59, 999);
-      now.setMonth(now.getMonth() + 1);
-      now.setDate(0); // last day of current month
-      
-      prevStartDate = new Date(startDate);
-      prevStartDate.setMonth(prevStartDate.getMonth() - 1);
-      prevEndDate = new Date(startDate);
-    } else if (timeRange === 'last-3-months') {
-      startDate.setHours(0, 0, 0, 0);
-      startDate.setDate(1); // Set to start of month to avoid rollover
-      startDate.setMonth(now.getMonth() - 3);
-      prevStartDate = new Date(startDate);
-      prevStartDate.setMonth(prevStartDate.getMonth() - 3);
-      prevEndDate = new Date(startDate);
-    } else if (timeRange === 'last-6-months') {
-      startDate.setHours(0, 0, 0, 0);
-      startDate.setDate(1);
-      startDate.setMonth(now.getMonth() - 6);
-      prevStartDate = new Date(startDate);
-      prevStartDate.setMonth(prevStartDate.getMonth() - 6);
-      prevEndDate = new Date(startDate);
-    } else if (timeRange === 'last-year') {
-      startDate.setHours(0, 0, 0, 0);
-      startDate.setDate(1);
-      startDate.setMonth(now.getMonth() - 11); // Last 12 months including current
-      prevStartDate = new Date(startDate);
-      prevStartDate.setFullYear(prevStartDate.getFullYear() - 1);
-      prevEndDate = new Date(startDate);
-    } else if (timeRange === 'last-5-years') {
-      startDate.setHours(0, 0, 0, 0);
-      startDate.setDate(1);
-      startDate.setFullYear(now.getFullYear() - 5);
-      prevStartDate = new Date(startDate);
-      prevStartDate.setFullYear(prevStartDate.getFullYear() - 5);
-      prevEndDate = new Date(startDate);
-    }
+    const { startDate, endDate, prevStartDate, prevEndDate } = getTzDateBoundaries(timeRange, timeZone);
 
     const validOrderMatch = { 
-      createdAt: { $gte: startDate }, 
+      createdAt: { $gte: startDate, $lte: endDate }, 
       orderStatus: { $ne: 'Cancelled' },
       refunded: { $ne: 'yes' }
     };
@@ -140,7 +207,7 @@ router.get('/', async (req, res) => {
     const currTotalRevenue = currentOrders[0]?.totalRevenue || 0;
     const currTotalOrders = currentOrders[0]?.totalOrders || 0;
 
-    const currentCustomers = await Customer.countDocuments({ createdAt: { $gte: startDate } });
+    const currentCustomers = await Customer.countDocuments({ createdAt: { $gte: startDate, $lte: endDate } });
     
     // Total catalog size
     const currTotalProducts = await Product.countDocuments();
@@ -177,7 +244,7 @@ router.get('/', async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    const dateRangeList = generateDateRange(startDate, now, timeRange);
+    const dateRangeList = generateDateRange(startDate, endDate, timeRange, timeZone);
     
     const revenueMap = {};
     chartAgg.forEach(item => {
