@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Eye, ChevronDown, ChevronUp, X, Printer, FileDown, Truck } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronDown, ChevronUp, X, Printer, FileDown, Truck, RotateCw } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -54,9 +54,18 @@ const Orders = () => {
 
   useEffect(() => {
     fetchOrders(false);
+    
+    // Listen for global Topbar refresh trigger
+    const handleGlobalRefresh = () => fetchOrders(false);
+    window.addEventListener('refreshData', handleGlobalRefresh);
+
     // Poll every 30 seconds for new orders
     const interval = setInterval(() => fetchOrders(true), 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      window.removeEventListener('refreshData', handleGlobalRefresh);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -239,6 +248,13 @@ const Orders = () => {
         }
         .new-badge-anim {
           animation: newBadgePop 1.5s ease-in-out infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
         }
       `}</style>
 

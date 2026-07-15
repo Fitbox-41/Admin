@@ -27,6 +27,10 @@ const Dashboard = () => {
       }
     };
     fetchAnalytics();
+
+    // Listen for global Topbar refresh trigger
+    window.addEventListener('refreshData', fetchAnalytics);
+    return () => window.removeEventListener('refreshData', fetchAnalytics);
   }, [timeRange]);
 
   const icons = [

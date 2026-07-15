@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, User, Menu, LogOut, Package, ShoppingCart } from 'lucide-react';
+import { Search, Bell, User, Menu, LogOut, Package, ShoppingCart, RotateCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,6 +9,20 @@ const NEW_ORDER_THRESHOLD_MINUTES = 30;
 const Topbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // Refresh State
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const handleGlobalRefresh = () => {
+    setIsRefreshing(true);
+    // Dispatch a global event so the current active page/component knows to refresh its data
+    window.dispatchEvent(new CustomEvent('refreshData'));
+    
+    // Auto reset spin state after 1.2 seconds (duration of animation)
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1200);
+  };
   
   // Dropdown states
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -208,6 +222,7 @@ const Topbar = ({ onMenuClick }) => {
                     </div>
                   </div>
                 )}
+
               </div>
             </div>
           )}
@@ -217,6 +232,17 @@ const Topbar = ({ onMenuClick }) => {
       {/* Right Actions */}
       <div className="flex items-center gap-6 ml-4">
         
+        {/* Global Refresh Button */}
+        <button
+          onClick={handleGlobalRefresh}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-all shadow-sm focus:outline-none disabled:opacity-50 active:scale-95 flex-shrink-0"
+          title="Refresh database data"
+          disabled={isRefreshing}
+        >
+          <RotateCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          <span>Refresh</span>
+        </button>
+
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button 
