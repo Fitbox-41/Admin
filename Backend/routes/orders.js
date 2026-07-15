@@ -489,4 +489,40 @@ router.get('/:id/cancel-status', async (req, res) => {
   }
 });
 
+// POST /api/orders/sync-cancellations — Re-cancel any orders where Delhivery cancel previously failed
+router.post('/sync-cancellations', async (req, res) => {
+  try {
+    // Find orders that are cancelled in our DB but Delhivery cancellation wasn't confirmed
+    const pendingCancels = await Order.find({
+      orderStatus: 'Cancelled',
+      awb: { $exists: true, $ne: null, $ne: '' },
+      delhiveryCancelConfirmed: false // explicitly failed or unconfirmed
+    });
+
+    const results = { total: pendingCancels.length, fixed: 0, stillFailing: 0, details: [] };
+
+    await Promise.all(pendingCancels.map(async (order) => {
+      try {
+        const result = await cancelDelhiveryShipment(order.awb);
+        if (result && !result.error) {
+          order.delhiveryCancelConfirmed = true;
+          await order.save();
+          results.fixed++;
+          results.details.push({ orderId: order._id, awb: order.awb, status: 'fixed' });
+        } else {
+          results.stillFailing++;
+          results.details.push({ orderId: order._id, awb: order.awb, status: 'still_failing', error: result?.message });
+        }
+      } catch (err) {
+        results.stillFailing++;
+        results.details.push({ orderId: order._id, awb: order.awb, status: 'error', error: err.message });
+      }
+    }));
+
+    res.json({ success: true, ...results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

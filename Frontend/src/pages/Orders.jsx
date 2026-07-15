@@ -1,10 +1,50 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Eye, ChevronUp, Printer, FileDown, Truck, RotateCw, PackageCheck, ShieldCheck } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronUp, Printer, FileDown, Truck, RotateCw, PackageCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 // How many minutes old an order is considered "new"
 const NEW_ORDER_THRESHOLD_MINUTES = 30;
+
+const CancelTimer = ({ createdAt, orderStatus }) => {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const orderTime = new Date(createdAt).getTime();
+    const diff = (orderTime + 60 * 60 * 1000) - Date.now();
+    return diff > 0 ? diff : 0;
+  });
+
+  useEffect(() => {
+    if (timeLeft <= 0 || orderStatus === 'Cancelled') return;
+    const timer = setInterval(() => {
+      const diff = (new Date(createdAt).getTime() + 60 * 60 * 1000) - Date.now();
+      if (diff <= 0) {
+        setTimeLeft(0);
+        clearInterval(timer);
+      } else {
+        setTimeLeft(diff);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [createdAt, timeLeft, orderStatus]);
+
+  if (orderStatus === 'Cancelled') return null;
+  if (timeLeft <= 0) {
+    return (
+      <div className="text-[10px] font-semibold text-text-mid mt-1">
+        Cancel window: <span className="text-gray-500 font-bold">Closed</span>
+      </div>
+    );
+  }
+
+  const minutes = Math.floor(timeLeft / (1000 * 60));
+  const seconds = Math.floor((timeLeft / 1000) % 60);
+
+  return (
+    <div className="text-[10px] font-semibold text-text-mid mt-1">
+      Cancel window: <span className="text-red-500 font-bold animate-pulse">{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}</span>
+    </div>
+  );
+};
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -15,6 +55,8 @@ const Orders = () => {
   const [paymentFilter, setPaymentFilter] = useState('');
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [isBulkPickupLoading, setIsBulkPickupLoading] = useState(false);
+  const [isSyncingCancellations, setIsSyncingCancellations] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState(new Set());
   const prevOrderIds = useRef(new Set());
   const [newOrderIds, setNewOrderIds] = useState(new Set());
 
@@ -54,6 +96,11 @@ const Orders = () => {
   };
 
   useEffect(() => {
+    // Clear selection when active tabs change
+    setSelectedOrderIds(new Set());
+  }, [activeTab, subTab]);
+
+  useEffect(() => {
     fetchOrders(false);
     
     // Listen for global Topbar refresh trigger
@@ -84,18 +131,75 @@ const Orders = () => {
     }
   };
 
-  // Orders eligible for bulk pickup: has AWB, status is Ordered or Created (not yet shipped)
-  const pickupEligibleOrders = orders.filter(o =>
+  // Orders where Delhivery cancellation failed — cancelled in DB but not confirmed on Delhivery
+  const unconfirmedCancels = orders.filter(o =>
+    o.orderStatus === 'Cancelled' &&
+    o.awb &&
+    o.delhiveryCancelConfirmed === false
+  );
+
+  const handleSyncCancellations = async () => {
+    if (unconfirmedCancels.length === 0) return;
+    if (!window.confirm(`Re-send cancellation to Delhivery for ${unconfirmedCancels.length} order(s) where it failed previously?`)) return;
+    setIsSyncingCancellations(true);
+    try {
+      const res = await fetch(`${API_URL}/orders/sync-cancellations`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Fixed: ${data.fixed} order(s) cancelled on Delhivery.${data.stillFailing > 0 ? `\n⚠️ ${data.stillFailing} still failing — check Delhivery dashboard manually.` : ''}`);
+        fetchOrders(false);
+      } else {
+        alert('Sync failed: ' + (data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Network error during sync.');
+    }
+    setIsSyncingCancellations(false);
+  };
+
+  // Filtered orders that are eligible for pickup
+  const filteredEligibleOrders = orders.filter(o =>
     o.awb &&
     (o.shipmentStatus === 'Ordered' || o.shipmentStatus === 'Created')
   );
 
+  // Selected orders that are actually eligible for pickup
+  const selectedEligibleOrders = filteredEligibleOrders.filter(o => selectedOrderIds.has(o._id));
+
+  const allEligibleSelected = filteredEligibleOrders.length > 0 &&
+    filteredEligibleOrders.every(o => selectedOrderIds.has(o._id));
+
+  const handleToggleSelectAll = () => {
+    if (allEligibleSelected) {
+      setSelectedOrderIds(prev => {
+        const next = new Set(prev);
+        filteredEligibleOrders.forEach(o => next.delete(o._id));
+        return next;
+      });
+    } else {
+      setSelectedOrderIds(prev => {
+        const next = new Set(prev);
+        filteredEligibleOrders.forEach(o => next.add(o._id));
+        return next;
+      });
+    }
+  };
+
+  const toggleSelectOrder = (orderId) => {
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
   const handleBulkSchedulePickup = async () => {
-    if (pickupEligibleOrders.length === 0) {
-      alert('No unshipped orders with AWB to schedule pickup for.');
+    if (selectedEligibleOrders.length === 0) {
+      alert('No selected orders with AWB to schedule pickup for.');
       return;
     }
-    if (!window.confirm(`Schedule pickup for ${pickupEligibleOrders.length} order(s) with Delhivery?`)) return;
+    if (!window.confirm(`Schedule pickup for ${selectedEligibleOrders.length} selected order(s) with Delhivery?`)) return;
 
     setIsBulkPickupLoading(true);
     let successCount = 0;
@@ -103,7 +207,7 @@ const Orders = () => {
     const updatedIds = [];
 
     await Promise.all(
-      pickupEligibleOrders.map(async (order) => {
+      selectedEligibleOrders.map(async (order) => {
         try {
           const res = await fetch(`${API_URL}/orders/${order._id}/pickup`, { method: 'POST' });
           const data = await res.json();
@@ -135,6 +239,11 @@ const Orders = () => {
       setOrders(prev =>
         prev.map(o => updatedIds.includes(o._id) ? { ...o, shipmentStatus: 'Ready to Ship' } : o)
       );
+      setSelectedOrderIds(prev => {
+        const next = new Set(prev);
+        updatedIds.forEach(id => next.delete(id));
+        return next;
+      });
     }
 
     setIsBulkPickupLoading(false);
@@ -533,23 +642,43 @@ const Orders = () => {
             )}
             <button
               onClick={handleBulkSchedulePickup}
-              disabled={isBulkPickupLoading || pickupEligibleOrders.length === 0}
+              disabled={isBulkPickupLoading || selectedEligibleOrders.length === 0}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm
-                ${ pickupEligibleOrders.length > 0
+                ${ selectedEligibleOrders.length > 0
                   ? 'bg-[#f0503c] text-white hover:bg-[#d94836] active:scale-95'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
-              title={pickupEligibleOrders.length > 0
-                ? `Schedule pickup for ${pickupEligibleOrders.length} unshipped order(s)`
-                : 'No unshipped orders with AWB'}
+              title={selectedEligibleOrders.length > 0
+                ? `Schedule pickup for ${selectedEligibleOrders.length} selected order(s)`
+                : 'Select one or more unshipped orders with AWB first'}
             >
               {isBulkPickupLoading
                 ? <RotateCw size={15} className="animate-spin" />
                 : <PackageCheck size={15} />}
-              {isBulkPickupLoading ? 'Scheduling...' : `Schedule Pickup${ pickupEligibleOrders.length > 0 ? ` (${pickupEligibleOrders.length})` : '' }`}
+              {isBulkPickupLoading ? 'Scheduling...' : `Schedule Pickup${ selectedEligibleOrders.length > 0 ? ` (${selectedEligibleOrders.length})` : '' }`}
             </button>
           </div>
         </div>
+
+        {/* WARNING: Unconfirmed Delhivery cancellations */}
+        {unconfirmedCancels.length > 0 && (
+          <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-800">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="flex-shrink-0 text-red-600" />
+              <span className="text-sm font-semibold">
+                {unconfirmedCancels.length} cancelled order{unconfirmedCancels.length > 1 ? 's' : ''} where Delhivery cancellation failed — the courier may still attempt pickup!
+              </span>
+            </div>
+            <button
+              onClick={handleSyncCancellations}
+              disabled={isSyncingCancellations}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
+            >
+              {isSyncingCancellations ? <RotateCw size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+              {isSyncingCancellations ? 'Fixing...' : 'Fix Now'}
+            </button>
+          </div>
+        )}
 
         {/* Top-Level Tabs */}
         <div style={{ borderBottom: '1.5px solid #e5e7eb', marginBottom: '8px' }} className="flex">
@@ -638,6 +767,16 @@ const Orders = () => {
               <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
                   <tr className="bg-bg text-text-mid text-sm uppercase tracking-wider">
+                    <th className="px-6 py-4 font-medium w-12">
+                      {filteredEligibleOrders.length > 0 && (
+                        <input
+                          type="checkbox"
+                          checked={allEligibleSelected}
+                          onChange={handleToggleSelectAll}
+                          className="w-4 h-4 accent-primary rounded cursor-pointer"
+                        />
+                      )}
+                    </th>
                     <th className="px-6 py-4 font-medium">Order ID</th>
                     <th className="px-6 py-4 font-medium">Customer</th>
                     <th className="px-6 py-4 font-medium">Date</th>
@@ -661,6 +800,18 @@ const Orders = () => {
                           key={order._id}
                           className={`transition-colors relative ${isExpanded ? 'bg-bg/30' : ''} ${isNew ? 'new-order-row' : 'hover:bg-bg/50'}`}
                         >
+                          <td className="px-6 py-4 w-12">
+                            {order.awb && (order.shipmentStatus === 'Ordered' || order.shipmentStatus === 'Created') ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedOrderIds.has(order._id)}
+                                onChange={() => toggleSelectOrder(order._id)}
+                                className="w-4 h-4 accent-primary rounded cursor-pointer"
+                              />
+                            ) : (
+                              <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded cursor-not-allowed" title="Not eligible for pickup (either already shipped, cancelled, or missing AWB)" />
+                            )}
+                          </td>
                           <td className="px-6 py-4 font-medium text-primary text-xs">
                             <div className="flex items-center gap-2">
                               {order.invoiceNumber ? order.invoiceNumber : `FBX-${order._id.substring(order._id.length - 8).toUpperCase()}`}
@@ -674,7 +825,8 @@ const Orders = () => {
                             <div className="text-xs text-text-mid">{order.customerEmail}</div>
                           </td>
                           <td className="px-6 py-4 text-text-mid text-sm">
-                            {new Date(order.createdAt).toLocaleDateString()}
+                            <div>{new Date(order.createdAt).toLocaleDateString()}</div>
+                            <CancelTimer createdAt={order.createdAt} orderStatus={order.orderStatus} />
                           </td>
                           <td className="px-6 py-4 font-medium">₹{order.totalAmount}</td>
                           <td className="px-6 py-4">
@@ -691,6 +843,22 @@ const Orders = () => {
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block ${getShipmentStatusColor(order.shipmentStatus || 'Ordered')}`}>
                               {getShipmentStatusLabel(order.shipmentStatus || 'Ordered')}
                             </span>
+                            {/* Delhivery cancellation confirmation text — only for cancelled orders */}
+                            {(order.orderStatus === 'Cancelled' || order.shipmentStatus === 'Cancelled') && (
+                              <div className="mt-1.5 text-[10px] font-semibold leading-tight">
+                                {order.awb ? (
+                                  order.delhiveryCancelConfirmed === true ? (
+                                    <span className="text-green-600">✓ Delhivery cancelled</span>
+                                  ) : order.delhiveryCancelConfirmed === false ? (
+                                    <span className="text-red-600">✗ Delhivery NOT cancelled</span>
+                                  ) : (
+                                    <span className="text-amber-600">? Delhivery unverified</span>
+                                  )
+                                ) : (
+                                  <span className="text-gray-400">— No shipment created</span>
+                                )}
+                              </div>
+                            )}
                           </td>
                           {/* Actions column — always visible */}
                           <td className="px-6 py-4">
@@ -851,7 +1019,7 @@ const Orders = () => {
                   })}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan="8" className="px-6 py-8 text-center text-text-mid">
+                      <td colSpan="9" className="px-6 py-8 text-center text-text-mid">
                         No orders found.
                       </td>
                     </tr>
