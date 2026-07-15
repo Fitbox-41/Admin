@@ -112,13 +112,15 @@ app.use(async (req, res, next) => {
 });
 
 // Routes
+import { protect } from './middleware/auth.js';
+
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/users', protect, userRoutes);
+app.use('/api/products', protect, productRoutes);
+app.use('/api/customers', protect, customerRoutes);
+app.use('/api/orders', protect, orderRoutes);
+app.use('/api/settings', protect, settingsRoutes);
+app.use('/api/analytics', protect, analyticsRoutes);
 
 // Start the server locally, but export for serverless (like Vercel)
 if (process.env.NODE_ENV !== 'production') {
