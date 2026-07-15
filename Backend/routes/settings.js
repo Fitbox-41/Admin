@@ -20,13 +20,14 @@ router.get('/', async (req, res) => {
 // PUT /api/settings - Update settings
 router.put('/', protect, async (req, res) => {
   try {
-    const { deliveryFee } = req.body;
+    const { deliveryFee, freeDeliveryThreshold } = req.body;
     let settings = await Settings.findOne();
     
     if (!settings) {
-      settings = await Settings.create({ deliveryFee });
+      settings = await Settings.create({ deliveryFee, freeDeliveryThreshold });
     } else {
-      settings.deliveryFee = deliveryFee;
+      if (deliveryFee !== undefined) settings.deliveryFee = deliveryFee;
+      if (freeDeliveryThreshold !== undefined) settings.freeDeliveryThreshold = freeDeliveryThreshold;
       await settings.save();
     }
     
