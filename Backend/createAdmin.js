@@ -12,21 +12,27 @@ const createAdmin = async () => {
       process.exit(1);
     }
 
+    const adminPassword = process.env.ADMIN_PASSWORD || process.argv[2];
+    if (!adminPassword) {
+      console.error('No password provided. Set ADMIN_PASSWORD in .env or pass it as a CLI argument: node createAdmin.js <password>');
+      process.exit(1);
+    }
+
     await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB');
 
     // Check if user already exists
     const userExists = await User.findOne({ name: new RegExp('^diwakar$', 'i') });
     if (userExists) {
-      console.log('User "diwakar" already exists. Updating password to password123...');
-      userExists.password = 'password123';
+      console.log('User "diwakar" already exists. Updating password...');
+      userExists.password = adminPassword;
       await userExists.save();
       console.log('Password updated successfully!');
     } else {
       console.log('Creating new user "diwakar"...');
       await User.create({
         name: 'diwakar',
-        password: 'password123'
+        password: adminPassword
       });
       console.log('Admin user created successfully!');
     }
