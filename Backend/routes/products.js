@@ -89,7 +89,7 @@ router.put('/:id', async (req, res) => {
     try {
         const allowed = ['price', 'oldPrice', 'name', 'category', 'subCategory', 'isNew', 
                          'isOutOfStock', 'qualities', 'longDesc', 'features', 'material',
-                         'relatedIds', 'variants', 'showcaseImages', 'imgSrc', 'hoverImgSrc'];
+                         'relatedIds', 'variants', 'showcaseImages', 'imgSrc', 'hoverImgSrc', 'stock'];
         
         const updateData = {};
         allowed.forEach(key => {
@@ -97,6 +97,14 @@ router.put('/:id', async (req, res) => {
         });
         if (updateData.price !== undefined) updateData.price = Number(updateData.price);
         if (updateData.oldPrice !== undefined) updateData.oldPrice = Number(updateData.oldPrice);
+        if (updateData.stock !== undefined) {
+            updateData.stock = Number(updateData.stock);
+            if (updateData.stock > 0) {
+                updateData.isOutOfStock = false;
+            } else {
+                updateData.isOutOfStock = true;
+            }
+        }
 
         const product = await Product.findOneAndUpdate(
             { id: req.params.id },

@@ -26,6 +26,7 @@ const AddProduct = () => {
     relatedIds: [],
     price: '',
     oldPrice: '',
+    stock: 100,
     imgSrc: '',
     hoverImgSrc: '',
     showcaseImages: [''],
@@ -110,6 +111,7 @@ const AddProduct = () => {
         ...formData,
         price: Number(formData.price) || 0,
         oldPrice: Number(formData.oldPrice) || 0,
+        stock: Number(formData.stock) || 0,
         qualities: formData.qualities.filter(Boolean),
         features: formData.features.filter(Boolean),
         showcaseImages: formData.showcaseImages.filter(Boolean),
@@ -190,6 +192,10 @@ const AddProduct = () => {
             <div className="space-y-1">
               <label className="text-xs text-text-mid">Base MRP (₹) — Fallback</label>
               <input type="number" name="oldPrice" value={formData.oldPrice} onChange={handleChange} className="w-full px-3 py-2 border border-border rounded text-sm bg-white" placeholder="1499" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-text-mid">Stock Level</label>
+              <input type="number" name="stock" value={formData.stock} onChange={handleChange} required className="w-full px-3 py-2 border border-border rounded text-sm bg-white" placeholder="100" />
             </div>
             <div className="flex gap-4 items-center">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
