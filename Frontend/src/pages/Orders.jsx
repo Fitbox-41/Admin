@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Eye, ChevronUp, Printer, FileDown, Truck, RotateCw, PackageCheck, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronUp, Printer, FileDown, Truck, RotateCw, PackageCheck, ShieldCheck, AlertTriangle, XCircle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -276,6 +276,29 @@ const Orders = () => {
     } catch (err) {
       console.error('Verify cancel error:', err);
       alert('Failed to check cancellation status.');
+    }
+  };
+
+  const handleAdminCancelOrder = async (orderId) => {
+    if (!window.confirm("Are you sure you want to cancel this order? This will mark it as Cancelled in the database, attempt to cancel the shipment on Delhivery, refund points (if any), and send the customer a cancellation email.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Order cancelled successfully.');
+        fetchOrders(false);
+      } else {
+        alert('Could not cancel order: ' + (data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Admin cancel order error:', err);
+      alert('Failed to send cancellation request.');
     }
   };
 
@@ -896,6 +919,18 @@ const Orders = () => {
                                 >
                                   <ShieldCheck size={14} />
                                   Verify Cancel
+                                </button>
+                              )}
+
+                              {/* Cancel Order */}
+                              {order.orderStatus !== 'Cancelled' && order.shipmentStatus !== 'Cancelled' && order.shipmentStatus !== 'Delivered' && (
+                                <button
+                                  onClick={() => handleAdminCancelOrder(order._id)}
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800 hover:underline transition-colors"
+                                  title="Cancel order, cancel Delhivery shipment, refund points, and notify user"
+                                >
+                                  <XCircle size={14} />
+                                  Cancel Order
                                 </button>
                               )}
 

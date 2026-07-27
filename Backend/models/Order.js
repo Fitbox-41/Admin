@@ -29,7 +29,15 @@ const orderSchema = new mongoose.Schema({
   invoiceUrl: String,
   paymentId: String,
   paidAt: Date,
-  refunded: { type: String, enum: ['yes', 'no'], default: 'no' }
+  refunded: { type: String, enum: ['yes', 'no'], default: 'no' },
+  appliedPoints: { type: Number, default: 0 },
+  pointsDiscount: { type: Number, default: 0 },
+  isRefunded: { type: Boolean, default: false },
+  refundedAt: Date,
+  pointsRefunded: { type: Boolean, default: false },
+  stockSubtracted: { type: Boolean, default: false },
+  delhiveryCancelConfirmed: { type: Boolean, default: null },
+  cancelReason: [{ type: String }]
 }, { timestamps: true });
 
 // Map to the existing 'orders' collection used by FitBox frontend

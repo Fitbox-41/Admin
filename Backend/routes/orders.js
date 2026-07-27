@@ -1,6 +1,10 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
+import Customer from '../models/Customer.js';
+import Wallet from '../models/Wallet.js';
+import WalletTransaction from '../models/WalletTransaction.js';
+import sendEmail from '../utils/sendEmail.js';
 import { trackDelhiveryShipment, requestDelhiveryPickup, getDelhiveryLabel, createDelhiveryShipment, cancelDelhiveryShipment } from '../utils/delhivery.js';
 
 const router = express.Router();
@@ -234,6 +238,8 @@ router.get('/:id/track', async (req, res) => {
           if (order.paymentMode === 'COD') {
             order.paymentStatus = 'Paid';
           }
+        } else if (newStatus === 'Cancelled') {
+          order.orderStatus = 'Cancelled';
         }
         await order.save();
       }
@@ -298,6 +304,8 @@ router.post('/sync-tracking', async (req, res) => {
               if (order.paymentMode === 'COD') {
                 order.paymentStatus = 'Paid';
               }
+            } else if (newStatus === 'Cancelled') {
+              order.orderStatus = 'Cancelled';
             }
             await order.save();
             results.updated++;
@@ -415,17 +423,128 @@ router.post('/:id/cancel', async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
+    if (order.orderStatus === 'Cancelled') {
+      return res.status(400).json({ success: false, message: 'Order is already cancelled' });
+    }
+
+    // Only allow cancellation if order is not Out for Delivery or Delivered
+    if (order.shipmentStatus === 'Out for Delivery' || order.shipmentStatus === 'Delivered') {
+      return res.status(400).json({ success: false, message: 'Cannot cancel an order that is out for delivery or already delivered' });
+    }
+
     let delhiveryResult = null;
 
     // Attempt Delhivery cancellation if AWB exists and shipment is not already delivered/RTO
     if (order.awb && !['Delivered', 'RTO'].includes(order.shipmentStatus)) {
       delhiveryResult = await cancelDelhiveryShipment(order.awb);
+      if (delhiveryResult && !delhiveryResult.error) {
+        order.delhiveryCancelConfirmed = true;
+        console.log(`Delhivery shipment confirmed cancelled for order ${order._id}, AWB: ${order.awb}`);
+      } else {
+        order.delhiveryCancelConfirmed = false;
+        console.error(`Delhivery cancellation FAILED for order ${order._id}, AWB: ${order.awb}`, delhiveryResult);
+      }
+    } else {
+      order.delhiveryCancelConfirmed = null;
     }
 
-    // Update DB regardless of Delhivery outcome
+    // Refund redeemed points back to the wallet (idempotent per order)
+    if (order.appliedPoints > 0 && !order.pointsRefunded) {
+      let wallet = await Wallet.findOne({ userId: order.userId });
+      if (!wallet) {
+        // Create wallet if it doesn't exist
+        wallet = new Wallet({ userId: order.userId, balance: 0 });
+      }
+      wallet.balance += order.appliedPoints;
+      await wallet.save();
+
+      const tx = new WalletTransaction({
+        userId: order.userId,
+        type: 'credit',
+        amount: order.appliedPoints,
+        balanceAfter: wallet.balance,
+        source: 'checkout_refund',
+        sourceId: order._id.toString(),
+        idempotencyKey: 'refund_cancel_' + order._id.toString(),
+        description: 'Points refunded for cancelled order'
+      });
+      await tx.save();
+      order.pointsRefunded = true;
+    }
+
     order.orderStatus = 'Cancelled';
     order.shipmentStatus = 'Cancelled';
     await order.save();
+
+    // Send Cancellation Email
+    try {
+      const customer = await Customer.findById(order.userId);
+      const emailToSend = customer?.email || order.customerEmail;
+      if (emailToSend) {
+        await sendEmail({
+          from: process.env.EMAIL_CART_FROM || process.env.EMAIL_FROM || 'FitBox Sports <cart@fitboxsports.in>',
+          email: emailToSend,
+          subject: `Order Cancelled - FitBox Sports (${order._id})`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+              <h2 style="color: #ef4444;">Order Cancelled</h2>
+              <p>Hi ${order.customerName || customer?.name || 'Customer'},</p>
+              <p>Your order (ID: ${order._id}) has been cancelled by the administrator.</p>
+              
+              <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
+                <thead>
+                  <tr style="background:#1a1a1a; color:#fff;">
+                    <th style="padding:10px 14px; text-align:left;">Product</th>
+                    <th style="padding:10px 14px; text-align:center;">Qty</th>
+                    <th style="padding:10px 14px; text-align:right;">Price</th>
+                    <th style="padding:10px 14px; text-align:right;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(order.items || []).map((item, i) => {
+                    const price = Number(String(item.price).replace(/[^0-9.-]+/g, ''));
+                    const qty = item.quantity || 1;
+                    const variant = item.selectedVariant ? ` (${item.selectedVariant})` : '';
+                    const size = item.selectedSize ? ` - ${item.selectedSize}` : '';
+                    const bg = i % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                    return `<tr style="background:${bg};">
+                      <td style="padding:10px 14px;">${item.name}${variant}${size}</td>
+                      <td style="padding:10px 14px; text-align:center;">${qty}</td>
+                      <td style="padding:10px 14px; text-align:right;">Rs. ${price}</td>
+                      <td style="padding:10px 14px; text-align:right;">Rs. ${price * qty}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+                <tfoot>
+                  <tr style="background:#fff3ee;">
+                    <td colspan="3" style="padding:10px 14px; text-align:right;">Subtotal:</td>
+                    <td style="padding:10px 14px; text-align:right;">Rs. ${(order.totalAmount - (order.deliveryCharge || 0))}</td>
+                  </tr>
+                  <tr style="background:#fff3ee;">
+                    <td colspan="3" style="padding:10px 14px; text-align:right;">Delivery Fee:</td>
+                    <td style="padding:10px 14px; text-align:right;">Rs. ${order.deliveryCharge || 0}</td>
+                  </tr>
+                  <tr style="background:#fff3ee; font-weight:bold;">
+                    <td colspan="3" style="padding:10px 14px; text-align:right;">Order Total:</td>
+                    <td style="padding:10px 14px; text-align:right; color:#ff6b35;">Rs. ${order.totalAmount}</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              ${order.paymentStatus === 'Paid' ? '<p>Your refund has been initiated and should reflect in your original payment method within 5-7 business days.</p>' : ''}
+              <br/>
+              <p>If you have any questions, feel free to contact us.</p>
+              <br/>
+              <p>Best Regards,</p>
+              <p><strong>FitBox Sports Team</strong></p>
+            </div>
+          `
+        });
+        console.log(`Cancellation email sent to ${emailToSend}`);
+      }
+    } catch (emailErr) {
+      console.error("Failed to send cancellation email:", emailErr);
+    }
 
     res.json({
       success: true,
