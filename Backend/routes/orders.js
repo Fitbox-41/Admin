@@ -489,7 +489,7 @@ router.post('/:id/cancel', async (req, res) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
               <h2 style="color: #ef4444;">Order Cancelled</h2>
               <p>Hi ${order.customerName || customer?.name || 'Customer'},</p>
-              <p>Your order (ID: ${order._id}) has been cancelled by the administrator.</p>
+              <p>Your order (ID: ${order._id}) has been successfully cancelled.</p>
               
               <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
                 <thead>
@@ -531,9 +531,9 @@ router.post('/:id/cancel', async (req, res) => {
                 </tfoot>
               </table>
 
-              ${order.paymentStatus === 'Paid' ? '<p>Your refund has been initiated and should reflect in your original payment method within 5-7 business days.</p>' : ''}
+              ${order.paymentStatus === 'Paid' ? '<p>Your refund will be initiated shortly and should reflect in your original payment method within 5-7 business days.</p>' : ''}
               <br/>
-              <p>If you have any questions, feel free to contact us.</p>
+              <p>If you have any questions, feel free to reply to this email.</p>
               <br/>
               <p>Best Regards,</p>
               <p><strong>FitBox Sports Team</strong></p>
