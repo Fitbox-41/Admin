@@ -251,95 +251,20 @@ const Products = () => {
           </div>
         </td>
         <td className="px-6 py-4">
-          {isEditing ? (
-            <div className="flex flex-col gap-2 w-72">
-              {/* Base Price Edit */}
-              <div className="space-y-2 border border-border p-2 rounded bg-bg/20">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-text-mid font-medium">Base Price (₹)</label>
-                    <input 
-                      type="text" 
-                      value={editPriceForm.price ?? ''} 
-                      onChange={(e) => setEditPriceForm({ ...editPriceForm, price: e.target.value })} 
-                      className="px-2 py-1 border border-border rounded text-xs bg-white w-full"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-text-mid font-medium">Base MRP (₹)</label>
-                    <input 
-                      type="text" 
-                      value={editPriceForm.oldPrice ?? ''} 
-                      onChange={(e) => setEditPriceForm({ ...editPriceForm, oldPrice: e.target.value })} 
-                      className="px-2 py-1 border border-border rounded text-xs bg-white w-full"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Variants → nested sizes edit */}
-              {editPriceForm.variants && editPriceForm.variants.length > 0 && (
-                <div className="space-y-2 max-h-72 overflow-y-auto mt-2">
-                  {editPriceForm.variants.map((v, vIdx) => (
-                    <div key={vIdx} className="border border-border rounded bg-bg/30 overflow-hidden">
-                      {v.color && (
-                        <div className="px-2 py-1 bg-primary/10 text-xs font-bold text-primary">{v.color}</div>
-                      )}
-                      <div className="p-1 space-y-1">
-                        <div className="grid grid-cols-4 gap-1 text-[10px] text-text-mid font-medium px-1">
-                          <span>Size</span><span>Price</span><span>MRP</span><span>Wt(g)</span>
-                        </div>
-                        {(v.sizes || []).map((s, sIdx) => (
-                          <div key={sIdx} className="grid grid-cols-4 gap-1">
-                            <span className="text-[11px] font-medium self-center px-1 truncate">{s.name || '—'}</span>
-                            <input type="text" value={s.price ?? ''} onChange={(e) => {
-                              const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
-                              nv[vIdx].sizes[sIdx].price = e.target.value;
-                              setEditPriceForm({...editPriceForm, variants: nv});
-                            }} className="px-1 py-0.5 border border-border rounded text-xs bg-white" />
-                            <input type="text" value={s.oldPrice ?? ''} onChange={(e) => {
-                              const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
-                              nv[vIdx].sizes[sIdx].oldPrice = e.target.value;
-                              setEditPriceForm({...editPriceForm, variants: nv});
-                            }} className="px-1 py-0.5 border border-border rounded text-xs bg-white" />
-                            <input type="text" value={s.weight ?? ''} onChange={(e) => {
-                              const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
-                              nv[vIdx].sizes[sIdx].weight = e.target.value;
-                              setEditPriceForm({...editPriceForm, variants: nv});
-                            }} className="px-1 py-0.5 border border-border rounded text-xs bg-white" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <div className="flex items-center gap-2 group">
+            <div>
+              <div className="text-text-dark font-medium">₹{product.price || (product.variants?.[0]?.sizes?.[0]?.price)}</div>
+              {(product.oldPrice || product.variants?.[0]?.sizes?.[0]?.oldPrice) && (
+                <div className="text-xs text-text-mid line-through">₹{product.oldPrice || product.variants?.[0]?.sizes?.[0]?.oldPrice}</div>
               )}
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => handleSavePrice(product.id)} disabled={updating} className="flex-1 flex justify-center items-center py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 transition-colors">
-                  <Save size={14} />
-                </button>
-                <button onClick={handleCancelEditPrice} disabled={updating} className="flex-1 flex justify-center items-center py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors">
-                  <X size={14} />
-                </button>
-              </div>
+              {(product.variants?.length > 1 || (product.variants?.[0]?.sizes?.length > 1)) && (
+                <div className="text-[13px] bg-primary text-white font-bold px-2 py-1 rounded inline-block mt-1 text-center whitespace-nowrap">Multiple Prices</div>
+              )}
             </div>
-
-          ) : (
-            <div className="flex items-center gap-2 group">
-              <div>
-                <div className="text-text-dark font-medium">₹{product.price || (product.variants?.[0]?.sizes?.[0]?.price)}</div>
-                {(product.oldPrice || product.variants?.[0]?.sizes?.[0]?.oldPrice) && (
-                  <div className="text-xs text-text-mid line-through">₹{product.oldPrice || product.variants?.[0]?.sizes?.[0]?.oldPrice}</div>
-                )}
-                {(product.variants?.length > 1 || (product.variants?.[0]?.sizes?.length > 1)) && (
-                  <div className="text-[13px] bg-primary text-white font-bold px-2 py-1 rounded inline-block mt-1">Multiple Prices</div>
-                )}
-              </div>
-              <button onClick={() => handleEditPriceClick(product)} className="p-2 text-text-mid hover:text-primary transition-colors bg-bg rounded shadow-sm border border-border/50">
-                <Edit2 size={18} />
-              </button>
-            </div>
-          )}
+            <button onClick={() => handleEditPriceClick(product)} className="p-2 text-text-mid hover:text-primary transition-colors bg-bg rounded shadow-sm border border-border/50 flex items-center justify-center cursor-pointer">
+              <Edit2 size={16} />
+            </button>
+          </div>
         </td>
         <td className="px-6 py-4">
           <button 
@@ -662,6 +587,133 @@ const Products = () => {
           )}
         </div>
       </div>
+
+      {/* Price Edit Modal */}
+      {editingPriceId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-gray-100 flex flex-col max-h-[85vh] transform transition-all scale-100">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-text-dark">Edit Product Pricing & Stock</h3>
+              <button 
+                onClick={handleCancelEditPrice}
+                className="p-1.5 rounded-lg text-text-mid hover:bg-bg hover:text-text-dark transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+              {/* Base Price & Stock Edit */}
+              <div className="space-y-3 bg-bg/20 p-4 rounded-xl border border-border/50">
+                <h4 className="text-xs font-bold text-text-dark uppercase tracking-wider">Base Pricing & Stock</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-text-mid font-semibold uppercase tracking-wider">Base Price (₹)</label>
+                    <input 
+                      type="text" 
+                      value={editPriceForm.price ?? ''} 
+                      onChange={(e) => setEditPriceForm({ ...editPriceForm, price: e.target.value })} 
+                      className="px-3 py-2 border border-border rounded-xl text-sm bg-white w-full focus:outline-none focus:border-primary transition-colors font-medium text-text-dark"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-text-mid font-semibold uppercase tracking-wider">Base MRP (₹)</label>
+                    <input 
+                      type="text" 
+                      value={editPriceForm.oldPrice ?? ''} 
+                      onChange={(e) => setEditPriceForm({ ...editPriceForm, oldPrice: e.target.value })} 
+                      className="px-3 py-2 border border-border rounded-xl text-sm bg-white w-full focus:outline-none focus:border-primary transition-colors font-medium text-text-dark"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-text-mid font-semibold uppercase tracking-wider">Stock Count</label>
+                    <input 
+                      type="number" 
+                      value={editPriceForm.stock ?? ''} 
+                      onChange={(e) => setEditPriceForm({ ...editPriceForm, stock: e.target.value })} 
+                      className="px-3 py-2 border border-border rounded-xl text-sm bg-white w-full focus:outline-none focus:border-primary transition-colors font-medium text-text-dark"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Variants → nested sizes edit */}
+              {editPriceForm.variants && editPriceForm.variants.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-text-dark uppercase tracking-wider">Variants & Sizes Overrides</h4>
+                  <div className="space-y-3">
+                    {editPriceForm.variants.map((v, vIdx) => (
+                      <div key={vIdx} className="border border-border rounded-xl overflow-hidden bg-bg/10">
+                        {v.color && (
+                          <div className="px-3 py-1.5 bg-primary/10 text-xs font-bold text-primary border-b border-border">{v.color}</div>
+                        )}
+                        <div className="p-3 space-y-2">
+                          <div className="grid grid-cols-4 gap-2 text-[10px] text-text-mid font-semibold px-1">
+                            <span>Size</span><span>Price</span><span>MRP</span><span>Wt(g)</span>
+                          </div>
+                          {(v.sizes || []).map((s, sIdx) => (
+                            <div key={sIdx} className="grid grid-cols-4 gap-2">
+                              <span className="text-[11px] font-semibold self-center px-1 truncate text-text-dark" title={s.name}>{s.name || '—'}</span>
+                              <input 
+                                type="text" 
+                                value={s.price ?? ''} 
+                                onChange={(e) => {
+                                  const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
+                                  nv[vIdx].sizes[sIdx].price = e.target.value;
+                                  setEditPriceForm({...editPriceForm, variants: nv});
+                                }} 
+                                className="px-2 py-1 border border-border rounded-lg text-xs bg-white focus:outline-none focus:border-primary text-text-dark font-medium" 
+                              />
+                              <input 
+                                type="text" 
+                                value={s.oldPrice ?? ''} 
+                                onChange={(e) => {
+                                  const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
+                                  nv[vIdx].sizes[sIdx].oldPrice = e.target.value;
+                                  setEditPriceForm({...editPriceForm, variants: nv});
+                                }} 
+                                className="px-2 py-1 border border-border rounded-lg text-xs bg-white focus:outline-none focus:border-primary text-text-dark font-medium" 
+                              />
+                              <input 
+                                type="text" 
+                                value={s.weight ?? ''} 
+                                onChange={(e) => {
+                                  const nv = JSON.parse(JSON.stringify(editPriceForm.variants));
+                                  nv[vIdx].sizes[sIdx].weight = e.target.value;
+                                  setEditPriceForm({...editPriceForm, variants: nv});
+                                }} 
+                                className="px-2 py-1 border border-border rounded-lg text-xs bg-white focus:outline-none focus:border-primary text-text-dark font-medium" 
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons at bottom - Cancel red background */}
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+              <button 
+                onClick={handleCancelEditPrice} 
+                disabled={updating} 
+                className="flex-1 flex justify-center items-center py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition-colors gap-1 cursor-pointer"
+              >
+                <X size={16} /> Cancel
+              </button>
+              <button 
+                onClick={() => handleSavePrice(editingPriceId)} 
+                disabled={updating} 
+                className="flex-1 flex justify-center items-center py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition-colors gap-1 cursor-pointer"
+              >
+                <Save size={16} /> Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
