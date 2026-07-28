@@ -12,6 +12,7 @@ import customerRoutes from './routes/customers.js';
 import orderRoutes from './routes/orders.js';
 import settingsRoutes from './routes/settings.js';
 import analyticsRoutes from './routes/analytics.js';
+import appRoutes from './routes/app.js';
 
 dotenv.config();
 
@@ -121,6 +122,7 @@ app.use('/api/customers', protect, customerRoutes);
 app.use('/api/orders', protect, orderRoutes);
 app.use('/api/settings', protect, settingsRoutes);
 app.use('/api/analytics', protect, analyticsRoutes);
+app.use('/api/app', protect, appRoutes);
 
 // Start the server locally, but export for serverless (like Vercel)
 if (process.env.NODE_ENV !== 'production') {

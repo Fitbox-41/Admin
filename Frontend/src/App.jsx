@@ -40,6 +40,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import DeveloperUsers from './pages/DeveloperUsers';
 import Customers from './pages/Customers';
+import AppManagement from './pages/AppManagement';
 
 function App() {
   return (
@@ -56,6 +57,7 @@ function App() {
               <Route path="orders" element={<Orders />} />
               <Route path="refunds" element={<Refunds />} />
               <Route path="users" element={<DeveloperUsers />} />
+              <Route path="app" element={<AppManagement />} />
               
               {/* Placeholders for other routes */}
               <Route path="customers" element={<Customers />} />

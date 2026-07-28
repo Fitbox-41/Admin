@@ -14,7 +14,8 @@ import {
   X,
   Shield,
   Undo2,
-  Truck
+  Truck,
+  Smartphone
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -34,6 +35,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
     { name: 'Refunds', path: '/refunds', icon: <Undo2 size={20} /> },
     { name: 'Admin Users', path: '/users', icon: <Shield size={20} /> },
+    { name: 'FitBox App', path: '/app', icon: <Smartphone size={20} /> },
     { name: 'Store Settings', path: '/store-settings', icon: <Truck size={20} /> },
   ];
 
