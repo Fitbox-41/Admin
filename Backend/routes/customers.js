@@ -37,16 +37,23 @@ router.get('/', async (req, res) => {
     ]);
     const countMap = new Map(counts.map((c) => [String(c._id), c.orderCount]));
 
-    // Only show WEBSITE users: those who signed in on the website (stamped
-    // `lastWebLoginAt`) or who have placed an order. App-only users (no website
-    // sign-in, no order) are excluded — they live under the FitBox App section.
+    // Show WEBSITE users. A user counts as a website user if they signed in on
+    // the website (stamped `lastWebLoginAt`) or placed an order — OR if they show
+    // no app footprint at all (a plain account defaults to the website, its
+    // native home). Only users who are clearly APP-only (have an app footprint
+    // and no website footprint) are excluded — they live under the FitBox App
+    // section. This keeps the list populated while still segregating app-only users.
     res.json(
       customers
         .map((c) => ({
           ...c,
           orderCount: countMap.get(String(c._id)) || 0,
         }))
-        .filter((c) => !!c.lastWebLoginAt || c.orderCount > 0)
+        .filter((c) => {
+          const appFootprint = !!c.lastAppLoginAt || !!(c.fcmTokens && c.fcmTokens.length);
+          const webFootprint = !!c.lastWebLoginAt || c.orderCount > 0;
+          return webFootprint || !appFootprint;
+        })
     );
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
