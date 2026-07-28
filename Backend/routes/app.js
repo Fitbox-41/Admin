@@ -52,7 +52,9 @@ router.get('/analytics', async (req, res) => {
     const since = new Date(Date.now() - 13 * 86400000); // last 14 days incl. today
 
     const [
-      userCount,
+      appFieldUsers,
+      runUserIds,
+      terrUserIds,
       pushUsers,
       runStats,
       dailyRuns,
@@ -64,7 +66,14 @@ router.get('/analytics', async (req, res) => {
       totalClaims,
       territories,
     ] = await Promise.all([
-      coll('users').countDocuments({}),
+      coll('users')
+        .find(
+          { $or: [{ lastAppLoginAt: { $exists: true } }, { fcmTokens: { $exists: true, $ne: [] } }] },
+          { projection: { _id: 1 } },
+        )
+        .toArray(),
+      coll('runs').distinct('userId'),
+      coll('territories').distinct('userId'),
       coll('users').countDocuments({ fcmTokens: { $exists: true, $ne: [] } }),
       coll('runs')
         .aggregate([
@@ -111,6 +120,14 @@ router.get('/analytics', async (req, res) => {
       coll('territories').find({ season, area: { $gt: 0 } }).toArray(),
     ]);
 
+    // App users = signed in on the app (stamped) OR have an app-only footprint.
+    const appUserSet = new Set([
+      ...appFieldUsers.map((u) => String(u._id)),
+      ...runUserIds.map(String),
+      ...terrUserIds.map(String),
+    ]);
+    const appUserCount = appUserSet.size;
+
     const rs = runStats[0] || {};
     const econByType = { credit: 0, debit: 0 };
     const bySource = {};
@@ -127,7 +144,7 @@ router.get('/analytics', async (req, res) => {
 
     res.json({
       success: true,
-      users: { total: userCount, withPush: pushUsers },
+      users: { total: appUserCount, withPush: pushUsers },
       runs: {
         count: rs.count || 0,
         distanceKm: Math.round((rs.distance || 0) / 1000),
@@ -172,10 +189,15 @@ router.get('/users', async (req, res) => {
     const users = await coll('users')
       .find(
         {},
-        { projection: { name: 1, email: 1, walletBalance: 1, createdAt: 1, fcmTokens: 1 } },
+        {
+          projection: {
+            name: 1, email: 1, walletBalance: 1, createdAt: 1,
+            fcmTokens: 1, lastAppLoginAt: 1,
+          },
+        },
       )
       .sort({ createdAt: -1 })
-      .limit(1000)
+      .limit(2000)
       .toArray();
 
     const ids = users.map((u) => u._id);
@@ -192,9 +214,8 @@ router.get('/users', async (req, res) => {
     const runMap = new Map(runAgg.map((r) => [String(r._id), r]));
     const terrMap = new Map(terr.map((t) => [String(t.userId), t]));
 
-    res.json({
-      success: true,
-      users: users.map((u) => {
+    const rows = users
+      .map((u) => {
         const r = runMap.get(String(u._id));
         const t = terrMap.get(String(u._id));
         return {
@@ -207,9 +228,20 @@ router.get('/users', async (req, res) => {
           territoryArea: t ? Math.round(t.area || 0) : 0,
           pushRegistered: !!(u.fcmTokens && u.fcmTokens.length),
           joined: u.createdAt,
+          // App user = signed in on the app (stamped) OR has app-only footprint
+          // (device token / recorded runs / territory) — the latter backfills
+          // users from before login-stamping existed.
+          _isAppUser:
+            !!u.lastAppLoginAt ||
+            !!(u.fcmTokens && u.fcmTokens.length) ||
+            (r && r.runs > 0) ||
+            (t && (t.area || 0) > 0),
         };
-      }),
-    });
+      })
+      .filter((u) => u._isAppUser)
+      .map(({ _isAppUser, ...u }) => u);
+
+    res.json({ success: true, users: rows });
   } catch (error) {
     console.error('App users error:', error);
     res.status(500).json({ success: false, message: 'Server error' });

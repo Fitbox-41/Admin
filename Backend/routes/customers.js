@@ -37,11 +37,16 @@ router.get('/', async (req, res) => {
     ]);
     const countMap = new Map(counts.map((c) => [String(c._id), c.orderCount]));
 
+    // Only show WEBSITE users: those who signed in on the website (stamped
+    // `lastWebLoginAt`) or who have placed an order. App-only users (no website
+    // sign-in, no order) are excluded — they live under the FitBox App section.
     res.json(
-      customers.map((c) => ({
-        ...c,
-        orderCount: countMap.get(String(c._id)) || 0,
-      }))
+      customers
+        .map((c) => ({
+          ...c,
+          orderCount: countMap.get(String(c._id)) || 0,
+        }))
+        .filter((c) => !!c.lastWebLoginAt || c.orderCount > 0)
     );
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
