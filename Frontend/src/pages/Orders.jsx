@@ -60,6 +60,14 @@ const Orders = () => {
   const [verifyCancelModal, setVerifyCancelModal] = useState(null);
   const prevOrderIds = useRef(new Set());
   const [newOrderIds, setNewOrderIds] = useState(new Set());
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchOrders = async (isPolling = false) => {
     try {
@@ -576,10 +584,15 @@ const Orders = () => {
     } else if (activeTab === 'Processing') {
       matchesTab = !isCompleted && !isCancelled;
       if (matchesTab) {
+        const orderAgeMs = o.createdAt ? (now - new Date(o.createdAt).getTime()) : Infinity;
+        const isUnder60Mins = orderAgeMs < 60 * 60 * 1000;
+
         if (subTab === 'All') {
            matchesTab = true;
+        } else if (subTab === 'Just Ordered') {
+           matchesTab = (shipmentStatus === 'Ordered' || shipmentStatus === 'Pending') && isUnder60Mins;
         } else if (subTab === 'Ordered') {
-           matchesTab = shipmentStatus === 'Ordered';
+           matchesTab = shipmentStatus === 'Ordered' && !isUnder60Mins;
         } else if (subTab === 'Ready to Ship') {
            matchesTab = shipmentStatus === 'Ready to Ship';
         } else if (subTab === 'In Transit') {
@@ -716,7 +729,7 @@ const Orders = () => {
         {/* Processing Sub-Tabs */}
         {activeTab === 'Processing' && (
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', padding: '8px 0 4px' }}>
-            {['All', 'Ordered', 'Ready to Ship', 'In Transit', 'Out for Delivery'].map(tab => (
+            {['All', 'Just Ordered', 'Ordered', 'Ready to Ship', 'In Transit', 'Out for Delivery'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setSubTab(tab)}
@@ -833,7 +846,9 @@ const Orders = () => {
                           </td>
                           <td className="px-6 py-4 text-text-mid text-sm">
                             <div>{new Date(order.createdAt).toLocaleDateString()}</div>
-                            <CancelTimer createdAt={order.createdAt} orderStatus={order.orderStatus} />
+                            {subTab === 'Just Ordered' && (
+                              <CancelTimer createdAt={order.createdAt} orderStatus={order.orderStatus} />
+                            )}
                           </td>
                           <td className="px-6 py-4 font-medium">₹{order.totalAmount}</td>
                           <td className="px-6 py-4">

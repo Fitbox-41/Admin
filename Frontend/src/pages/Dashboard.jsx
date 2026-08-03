@@ -81,9 +81,31 @@ const Dashboard = () => {
     return `₹${value}`;
   };
 
-  const handleDownloadExcel = () => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-    window.open(`${API_URL}/orders/export?timeRange=${timeRange}`, '_blank');
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadExcel = async () => {
+    try {
+      setDownloading(true);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      const res = await fetch(`${API_URL}/orders/export?timeRange=${timeRange}`);
+      if (!res.ok) {
+        throw new Error(`Export status: ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analytics_${timeRange}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download analytics:', error);
+      alert('Failed to download analytics file. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -108,10 +130,15 @@ const Dashboard = () => {
 
           <button 
             onClick={handleDownloadExcel}
-            className="flex items-center gap-2 bg-primary text-white py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark transition-all"
+            disabled={downloading}
+            className="flex items-center gap-2 bg-primary text-white py-2 px-4 rounded-lg shadow-sm hover:bg-primary-dark transition-all disabled:opacity-60"
           >
-            <Download size={18} />
-            <span className="hidden sm:inline">Export Analytics</span>
+            {downloading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <Download size={18} />
+            )}
+            <span className="hidden sm:inline">{downloading ? 'Downloading...' : 'Export Analytics'}</span>
           </button>
         </div>
       </div>

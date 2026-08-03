@@ -195,6 +195,28 @@ const Products = () => {
     }
   };
 
+const getMinProductPrice = (product) => {
+  let minPrice = Infinity;
+  if (typeof product?.price === 'number' && product.price > 0) {
+    minPrice = Math.min(minPrice, product.price);
+  }
+  if (Array.isArray(product?.variants)) {
+    product.variants.forEach(variant => {
+      if (typeof variant?.price === 'number' && variant.price > 0) {
+        minPrice = Math.min(minPrice, variant.price);
+      }
+      if (Array.isArray(variant?.sizes)) {
+        variant.sizes.forEach(size => {
+          if (typeof size?.price === 'number' && size.price > 0) {
+            minPrice = Math.min(minPrice, size.price);
+          }
+        });
+      }
+    });
+  }
+  return minPrice === Infinity ? 0 : minPrice;
+};
+
   // Filtered Products Logic
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -204,6 +226,10 @@ const Products = () => {
     if (statusFilter === 'in_stock') matchesStatus = !p.isOutOfStock;
     if (statusFilter === 'out_of_stock') matchesStatus = p.isOutOfStock;
     if (statusFilter === 'new_arrival') matchesStatus = p.isNew;
+    if (statusFilter === 'under_99') {
+      const minPrice = getMinProductPrice(p);
+      matchesStatus = minPrice > 0 && minPrice <= 99;
+    }
 
     const matchesCategory = categoryFilter === 'All' || p.category === categoryFilter;
     
@@ -345,11 +371,18 @@ const Products = () => {
           )}
         </td>
         <td className="px-6 py-4">
-          {product.isNew && (
-            <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold leading-none bg-orange-100 text-orange-700">
-              New Arrival
-            </span>
-          )}
+          <div className="flex flex-col gap-1 items-start">
+            {product.isNew && (
+              <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold leading-none bg-orange-100 text-orange-700">
+                New Arrival
+              </span>
+            )}
+            {getMinProductPrice(product) > 0 && getMinProductPrice(product) <= 99 && (
+              <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold leading-none bg-purple-100 text-purple-700">
+                Under ₹99
+              </span>
+            )}
+          </div>
         </td>
         <td className="px-6 py-4 text-right">
           <div className="flex items-center justify-end gap-2">
@@ -538,6 +571,7 @@ const Products = () => {
               <option value="in_stock">In Stock</option>
               <option value="out_of_stock">Out of Stock</option>
               <option value="new_arrival">New Arrivals</option>
+              <option value="under_99">Under ₹99</option>
             </select>
           </div>
         </div>

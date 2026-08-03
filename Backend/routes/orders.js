@@ -83,9 +83,11 @@ router.get('/export', async (req, res) => {
       case 'today':
         startDate.setHours(0, 0, 0, 0);
         break;
+      case 'this-week':
       case 'last-week':
         startDate.setDate(now.getDate() - 7);
         break;
+      case 'this-month':
       case 'last-month':
         startDate.setMonth(now.getMonth() - 1);
         break;
