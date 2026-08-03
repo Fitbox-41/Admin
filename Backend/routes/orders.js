@@ -109,74 +109,169 @@ router.get('/export', async (req, res) => {
 
     const orders = await Order.find({ createdAt: { $gte: startDate }, ...GATEWAY_CROSSED_FILTER }).sort({ createdAt: -1 });
     
-    // Dynamically import exceljs to avoid issues if not used everywhere
-    const ExcelJS = (await import('exceljs')).default;
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Analytics');
-
-    worksheet.columns = [
-      { header: 'Customer Name', key: 'customerName', width: 25 },
-      { header: 'New Customer', key: 'newCustomer', width: 15 },
-      { header: 'Orders Placed', key: 'items', width: 50 },
-      { header: 'Order Total (Rs)', key: 'totalAmount', width: 15 },
-      { header: 'Order Status', key: 'orderStatus', width: 20 },
-      { header: 'Date', key: 'date', width: 15 }
-    ];
-
-    let grandTotal = 0;
+    // Group orders by User/Customer
+    const userMap = new Map();
 
     for (const order of orders) {
-      // Check if new customer (first order in db for this user)
+      const key = order.userId
+        ? order.userId.toString()
+        : (order.customerEmail || order.customerPhone || order.customerName || 'Guest').toLowerCase().trim();
+
+      if (!userMap.has(key)) {
+        userMap.set(key, {
+          userId: order.userId,
+          customerName: order.customerName || order.shippingAddress?.name || 'Guest',
+          customerPhone: order.customerPhone || order.shippingAddress?.phone || 'N/A',
+          customerEmail: order.customerEmail || 'N/A',
+          orders: []
+        });
+      }
+      userMap.get(key).orders.push(order);
+    }
+
+    // Dynamically import exceljs
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Customer Analytics');
+
+    worksheet.columns = [
+      { header: 'Customer Details', key: 'customerName', width: 28 },
+      { header: 'Customer Type', key: 'customerType', width: 20 },
+      { header: 'Orders Made', key: 'orders', width: 60 },
+      { header: 'Total Cost (₹)', key: 'totalAmount', width: 18 },
+      { header: 'Payment Status', key: 'paymentStatus', width: 25 },
+      { header: 'Delivery Status', key: 'deliveryStatus', width: 25 }
+    ];
+
+    // Style Header Row
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 28;
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' } // Slate Dark Navy
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        bold: true,
+        color: { argb: 'FFFFFFFF' },
+        size: 11
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+
+    let overallGrandTotal = 0;
+
+    for (const [, userData] of userMap.entries()) {
+      const customerOrders = userData.orders;
+      const userTotal = customerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      overallGrandTotal += userTotal;
+
+      // Check if user is a NEW CUSTOMER (earliest order in entire DB was placed in this time period)
       let isNewCustomer = false;
-      if (order.userId) {
-        const firstOrder = await Order.findOne({ userId: order.userId }).sort({ createdAt: 1 });
-        isNewCustomer = firstOrder && firstOrder._id.toString() === order._id.toString();
+      const query = userData.userId
+        ? { userId: userData.userId }
+        : { customerEmail: userData.customerEmail };
+
+      if (userData.userId || (userData.customerEmail && userData.customerEmail !== 'N/A')) {
+        const firstOrder = await Order.findOne(query).sort({ createdAt: 1 });
+        if (firstOrder && firstOrder.createdAt >= startDate) {
+          isNewCustomer = true;
+        }
       }
 
-      const itemNames = order.items ? order.items.map(i => `• ${i.name} (x${i.quantity})`).join('\n') : '';
-      const orderStatus = order.orderStatus || (order.paymentStatus === 'Paid' ? 'Completed' : order.paymentStatus === 'Failed' ? 'Cancelled' : 'Pending');
+      // Format all orders for this person into a single text block
+      const ordersText = customerOrders.map((ord, idx) => {
+        const orderIdStr = ord.invoiceNumber || (ord._id ? `FBX-${ord._id.toString().slice(-6).toUpperCase()}` : `Order #${idx+1}`);
+        const itemsList = ord.items && ord.items.length > 0
+          ? ord.items.map(i => `${i.name} (x${i.quantity || 1})`).join(', ')
+          : 'No items detailed';
+        const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '';
+        return `• ${orderIdStr} (${dateStr}): ${itemsList} [₹${ord.totalAmount}]`;
+      }).join('\n\n');
+
+      // Format payment status per order
+      const paymentStatusText = customerOrders.map((ord) => {
+        const status = ord.paymentStatus === 'Paid' ? 'Success (Paid)' : ord.paymentStatus === 'Failed' ? 'Failed' : 'Pending';
+        const mode = ord.paymentMode ? ` [${ord.paymentMode}]` : '';
+        return `• ${status}${mode}`;
+      }).join('\n\n');
+
+      // Format delivery status per order
+      const deliveryStatusText = customerOrders.map((ord) => {
+        const delStatus = ord.shipmentStatus || ord.orderStatus || 'Processing';
+        const courierStr = ord.courier ? ` (${ord.courier})` : '';
+        return `• ${delStatus}${courierStr}`;
+      }).join('\n\n');
+
+      const contactInfo = userData.customerPhone !== 'N/A'
+        ? userData.customerPhone
+        : userData.customerEmail;
 
       const row = worksheet.addRow({
-        customerName: order.customerName || 'Guest',
-        newCustomer: isNewCustomer ? 'Yes' : 'No',
-        items: itemNames,
-        totalAmount: order.totalAmount,
-        orderStatus: orderStatus,
-        date: order.createdAt.toLocaleDateString()
+        customerName: `${userData.customerName}\n(${contactInfo})`,
+        customerType: isNewCustomer ? 'NEW CUSTOMER' : 'Existing Customer',
+        orders: ordersText,
+        totalAmount: userTotal,
+        paymentStatus: paymentStatusText,
+        deliveryStatus: deliveryStatusText
       });
 
-      // Enable text wrapping for the items column to show bullet points nicely
-      row.getCell('items').alignment = { wrapText: true, vertical: 'top' };
+      // Format Cell Alignments
+      row.getCell('customerName').alignment = { wrapText: true, vertical: 'top' };
+      row.getCell('customerType').alignment = { vertical: 'top', horizontal: 'center' };
+      row.getCell('orders').alignment = { wrapText: true, vertical: 'top' };
+      row.getCell('totalAmount').alignment = { vertical: 'top', horizontal: 'right' };
+      row.getCell('totalAmount').numFmt = '₹#,##0.00';
+      row.getCell('paymentStatus').alignment = { wrapText: true, vertical: 'top' };
+      row.getCell('deliveryStatus').alignment = { wrapText: true, vertical: 'top' };
 
-      // Highlight new customers (light blue background)
+      // Highlight NEW CUSTOMER cells
       if (isNewCustomer) {
+        row.getCell('customerType').fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFD1FAE5' } // Light Emerald Green fill
+        };
+        row.getCell('customerType').font = { bold: true, color: { argb: 'FF065F46' } };
+
         row.getCell('customerName').fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: 'FFADD8E6' } 
+          fgColor: { argb: 'FFF0FDF4' }
         };
-      }
-
-      // Color code order status
-      const statusCell = row.getCell('orderStatus');
-      if (orderStatus === 'Completed') {
-        statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF90EE90' } }; // Light Green
-      } else if (orderStatus === 'Cancelled') {
-        statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFB6C1' } }; // Light Red
       } else {
-        statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFE0' } }; // Light Yellow
+        row.getCell('customerType').font = { color: { argb: 'FF64748B' } };
       }
-
-      grandTotal += (order.totalAmount || 0);
     }
 
-    // Add Total Row
+    // Add Blank Spacer Row
     worksheet.addRow([]);
+
+    // Add Grand Total Row at Bottom
     const totalRow = worksheet.addRow({
-      items: 'GRAND TOTAL',
-      totalAmount: grandTotal
+      orders: `GRAND TOTAL REVENUE (${userMap.size} Customers):`,
+      totalAmount: overallGrandTotal
     });
-    totalRow.font = { bold: true };
+
+    totalRow.height = 26;
+    totalRow.getCell('orders').font = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
+    totalRow.getCell('orders').alignment = { horizontal: 'right', vertical: 'middle' };
+
+    const totalCostCell = totalRow.getCell('totalAmount');
+    totalCostCell.font = { bold: true, size: 12, color: { argb: 'FFB45309' } };
+    totalCostCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    totalCostCell.numFmt = '₹#,##0.00';
+    totalCostCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFEF3C7' } // Light Amber Fill
+    };
+    totalCostCell.border = {
+      top: { style: 'thin', color: { argb: 'FDF59E0B' } },
+      bottom: { style: 'double', color: { argb: 'FDF59E0B' } }
+    };
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=analytics_${timeRange}.xlsx`);
@@ -512,23 +607,23 @@ router.post('/:id/cancel', async (req, res) => {
                     return `<tr style="background:${bg};">
                       <td style="padding:10px 14px;">${item.name}${variant}${size}</td>
                       <td style="padding:10px 14px; text-align:center;">${qty}</td>
-                      <td style="padding:10px 14px; text-align:right;">?${price}</td>
-                      <td style="padding:10px 14px; text-align:right;">?${price * qty}</td>
+                      <td style="padding:10px 14px; text-align:right;">₹${price}</td>
+                      <td style="padding:10px 14px; text-align:right;">₹${price * qty}</td>
                     </tr>`;
                   }).join('')}
                 </tbody>
                 <tfoot>
                   <tr style="background:#fff3ee;">
                     <td colspan="3" style="padding:10px 14px; text-align:right;">Subtotal:</td>
-                    <td style="padding:10px 14px; text-align:right;">?${(order.totalAmount - (order.deliveryCharge || 0))}</td>
+                    <td style="padding:10px 14px; text-align:right;">₹${(order.totalAmount - (order.deliveryCharge || 0))}</td>
                   </tr>
                   <tr style="background:#fff3ee;">
                     <td colspan="3" style="padding:10px 14px; text-align:right;">Delivery Fee:</td>
-                    <td style="padding:10px 14px; text-align:right;">?${order.deliveryCharge || 0}</td>
+                    <td style="padding:10px 14px; text-align:right;">₹${order.deliveryCharge || 0}</td>
                   </tr>
                   <tr style="background:#fff3ee; font-weight:bold;">
                     <td colspan="3" style="padding:10px 14px; text-align:right;">Order Total:</td>
-                    <td style="padding:10px 14px; text-align:right; color:#ff6b35;">?${order.totalAmount}</td>
+                    <td style="padding:10px 14px; text-align:right; color:#ff6b35;">₹${order.totalAmount}</td>
                   </tr>
                 </tfoot>
               </table>
