@@ -61,7 +61,8 @@ function App() {
               
               {/* Placeholders for other routes */}
               <Route path="customers" element={<Customers />} />
-              <Route path="store-settings" element={<StoreSettings />} />
+              <Route path="website-settings" element={<StoreSettings />} />
+              <Route path="store-settings" element={<Navigate to="/website-settings" replace />} />
 
               <Route path="settings" element={<Settings />} />
               

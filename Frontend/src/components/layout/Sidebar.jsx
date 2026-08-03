@@ -15,7 +15,8 @@ import {
   Shield,
   Undo2,
   Truck,
-  Smartphone
+  Smartphone,
+  Globe
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -27,16 +28,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     navigate('/login');
   };
 
-  const navItems = [
+  const mainNavItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Products', path: '/products', icon: <ShoppingBag size={20} /> },
     { name: 'Orders', path: '/orders', icon: <ShoppingCart size={20} /> },
     { name: 'Customers', path: '/customers', icon: <Users size={20} /> },
-
     { name: 'Refunds', path: '/refunds', icon: <Undo2 size={20} /> },
     { name: 'Admin Users', path: '/users', icon: <Shield size={20} /> },
-    { name: 'FitBox App', path: '/app', icon: <Smartphone size={20} /> },
-    { name: 'Store Settings', path: '/store-settings', icon: <Truck size={20} /> },
+    { name: 'Website Settings', path: '/website-settings', icon: <Globe size={20} /> },
   ];
 
   return (
@@ -57,9 +56,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-      <div className="flex-1 overflow-y-auto py-4">
+      <div className="flex-1 overflow-y-auto py-2">
         <nav className="space-y-1 px-3">
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
@@ -76,6 +75,24 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <span>{item.name}</span>
             </NavLink>
           ))}
+
+          {/* Separated & Subtly Accentuated FitBox App Option at the bottom */}
+          <div className="pt-2 mt-2 border-t border-secondary-light/60">
+            <NavLink
+              to="/app"
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200 ${
+                  isActive 
+                    ? 'bg-primary text-white font-semibold' 
+                    : 'text-orange-400 hover:bg-secondary-light hover:text-white font-medium'
+                }`
+              }
+            >
+              <Smartphone size={20} className="text-orange-400" />
+              <span>FitBox App</span>
+            </NavLink>
+          </div>
         </nav>
       </div>
 
