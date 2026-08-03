@@ -107,15 +107,43 @@ router.get('/export', async (req, res) => {
         startDate.setMonth(now.getMonth() - 1);
     }
 
+    // 1. Fetch all Customers registered/logged in since startDate
+    const newCustomers = await Customer.find({ createdAt: { $gte: startDate } });
+
+    // 2. Fetch all Orders placed since startDate matching gateway filter
     const orders = await Order.find({ createdAt: { $gte: startDate }, ...GATEWAY_CROSSED_FILTER }).sort({ createdAt: -1 });
-    
+
     // Group orders by User/Customer
     const userMap = new Map();
 
+    const getCustomerKey = (id, email, phone, name) => {
+      if (id) return id.toString();
+      if (email && email !== 'N/A' && email !== '') return email.toLowerCase().trim();
+      if (phone && phone !== 'N/A' && phone !== '') return phone.trim();
+      return (name || 'Guest').toLowerCase().trim();
+    };
+
+    // First, populate map with all Customers registered in this time period
+    for (const cust of newCustomers) {
+      const key = getCustomerKey(cust._id, cust.email, cust.phone, cust.name);
+      userMap.set(key, {
+        userId: cust._id,
+        customerName: cust.name || 'User',
+        customerPhone: cust.phone || 'N/A',
+        customerEmail: cust.email || 'N/A',
+        registeredInPeriod: true,
+        orders: []
+      });
+    }
+
+    // Next, add orders to map (creating entries for any guest/existing buyers as well)
     for (const order of orders) {
-      const key = order.userId
-        ? order.userId.toString()
-        : (order.customerEmail || order.customerPhone || order.customerName || 'Guest').toLowerCase().trim();
+      const key = getCustomerKey(
+        order.userId,
+        order.customerEmail,
+        order.customerPhone || order.shippingAddress?.phone,
+        order.customerName || order.shippingAddress?.name
+      );
 
       if (!userMap.has(key)) {
         userMap.set(key, {
@@ -123,6 +151,7 @@ router.get('/export', async (req, res) => {
           customerName: order.customerName || order.shippingAddress?.name || 'Guest',
           customerPhone: order.customerPhone || order.shippingAddress?.phone || 'N/A',
           customerEmail: order.customerEmail || 'N/A',
+          registeredInPeriod: false,
           orders: []
         });
       }
@@ -168,42 +197,47 @@ router.get('/export', async (req, res) => {
       const userTotal = customerOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
       overallGrandTotal += userTotal;
 
-      // Check if user is a NEW CUSTOMER (earliest order in entire DB was placed in this time period)
-      let isNewCustomer = false;
-      const query = userData.userId
-        ? { userId: userData.userId }
-        : { customerEmail: userData.customerEmail };
-
-      if (userData.userId || (userData.customerEmail && userData.customerEmail !== 'N/A')) {
+      // Determine if NEW USER (registered in this period or placed their first order in this period)
+      let isNewCustomer = userData.registeredInPeriod || false;
+      if (!isNewCustomer && (userData.userId || (userData.customerEmail && userData.customerEmail !== 'N/A'))) {
+        const query = userData.userId ? { userId: userData.userId } : { customerEmail: userData.customerEmail };
         const firstOrder = await Order.findOne(query).sort({ createdAt: 1 });
         if (firstOrder && firstOrder.createdAt >= startDate) {
           isNewCustomer = true;
         }
       }
 
-      // Format all orders for this person into a single text block
-      const ordersText = customerOrders.map((ord, idx) => {
-        const orderIdStr = ord.invoiceNumber || (ord._id ? `FBX-${ord._id.toString().slice(-6).toUpperCase()}` : `Order #${idx+1}`);
-        const itemsList = ord.items && ord.items.length > 0
-          ? ord.items.map(i => `${i.name} (x${i.quantity || 1})`).join(', ')
-          : 'No items detailed';
-        const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '';
-        return `• ${orderIdStr} (${dateStr}): ${itemsList} [₹${ord.totalAmount}]`;
-      }).join('\n\n');
+      // Format orders text
+      let ordersText = '';
+      let paymentStatusText = '';
+      let deliveryStatusText = '';
 
-      // Format payment status per order
-      const paymentStatusText = customerOrders.map((ord) => {
-        const status = ord.paymentStatus === 'Paid' ? 'Success (Paid)' : ord.paymentStatus === 'Failed' ? 'Failed' : 'Pending';
-        const mode = ord.paymentMode ? ` [${ord.paymentMode}]` : '';
-        return `• ${status}${mode}`;
-      }).join('\n\n');
+      if (customerOrders.length === 0) {
+        ordersText = 'No orders placed yet';
+        paymentStatusText = 'N/A';
+        deliveryStatusText = 'N/A';
+      } else {
+        ordersText = customerOrders.map((ord, idx) => {
+          const orderIdStr = ord.invoiceNumber || (ord._id ? `FBX-${ord._id.toString().slice(-6).toUpperCase()}` : `Order #${idx+1}`);
+          const itemsList = ord.items && ord.items.length > 0
+            ? ord.items.map(i => `${i.name} (x${i.quantity || 1})`).join(', ')
+            : 'No items detailed';
+          const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '';
+          return `• ${orderIdStr} (${dateStr}): ${itemsList} [₹${ord.totalAmount}]`;
+        }).join('\n\n');
 
-      // Format delivery status per order
-      const deliveryStatusText = customerOrders.map((ord) => {
-        const delStatus = ord.shipmentStatus || ord.orderStatus || 'Processing';
-        const courierStr = ord.courier ? ` (${ord.courier})` : '';
-        return `• ${delStatus}${courierStr}`;
-      }).join('\n\n');
+        paymentStatusText = customerOrders.map((ord) => {
+          const status = ord.paymentStatus === 'Paid' ? 'Success (Paid)' : ord.paymentStatus === 'Failed' ? 'Failed' : 'Pending';
+          const mode = ord.paymentMode ? ` [${ord.paymentMode}]` : '';
+          return `• ${status}${mode}`;
+        }).join('\n\n');
+
+        deliveryStatusText = customerOrders.map((ord) => {
+          const delStatus = ord.shipmentStatus || ord.orderStatus || 'Processing';
+          const courierStr = ord.courier ? ` (${ord.courier})` : '';
+          return `• ${delStatus}${courierStr}`;
+        }).join('\n\n');
+      }
 
       const contactInfo = userData.customerPhone !== 'N/A'
         ? userData.customerPhone
@@ -211,7 +245,7 @@ router.get('/export', async (req, res) => {
 
       const row = worksheet.addRow({
         customerName: `${userData.customerName}\n(${contactInfo})`,
-        customerType: isNewCustomer ? 'NEW CUSTOMER' : 'Existing Customer',
+        customerType: isNewCustomer ? 'NEW USER' : 'Existing Customer',
         orders: ordersText,
         totalAmount: userTotal,
         paymentStatus: paymentStatusText,
@@ -227,7 +261,13 @@ router.get('/export', async (req, res) => {
       row.getCell('paymentStatus').alignment = { wrapText: true, vertical: 'top' };
       row.getCell('deliveryStatus').alignment = { wrapText: true, vertical: 'top' };
 
-      // Highlight NEW CUSTOMER cells
+      if (customerOrders.length === 0) {
+        row.getCell('orders').font = { color: { argb: 'FF94A3B8' }, italic: true };
+        row.getCell('paymentStatus').font = { color: { argb: 'FF94A3B8' } };
+        row.getCell('deliveryStatus').font = { color: { argb: 'FF94A3B8' } };
+      }
+
+      // Highlight NEW USER cells
       if (isNewCustomer) {
         row.getCell('customerType').fill = {
           type: 'pattern',
