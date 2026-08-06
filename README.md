@@ -10,9 +10,21 @@ A modern, responsive, and aesthetically pleasing administrative dashboard for th
 - **Interactive Data Visualization**: Comprehensive charts and metrics for quick insights.
 - **High-Performance**: Lightning-fast load times powered by Vite.
 - **Store management**: Products, Orders, Customers, Refunds, Admin Users, Store Settings.
+  Orders support filtering, status updates, shipment tracking and an **Excel
+  analytics export**; Store Settings drives the storefront's delivery charges,
+  free-delivery threshold and sale ribbon.
+- **Customers vs app users**: **Customers** lists website users, **FitBox App →
+  Users** lists app users, and a genuine dual user appears in both. The split
+  comes from `lastWebLoginAt` (stamped when a request carries `X-Client: web`,
+  which only the website frontend sends) and `lastAppLoginAt` (stamped by the app
+  backend on any authenticated request). Known testers can be tagged manually via
+  the app backend's `POST /api/appmaint/tag {email, app, web}`.
 - **FitBox App management** (sidebar → **FitBox App**, route `/app`): analytics and
   controls for the mobile app, on the shared Atlas DB —
   - *Overview*: users, runs (14-day chart), points economy, challenges, territory.
+    The points-liability figure prices points at **₹0.10** (`valueInr` in
+    `Backend/routes/app.js`) — it must match the website's checkout constants, or
+    the liability number is wrong.
   - *Users*: app users with points / runs / distance / territory / push status.
   - *Challenges*: create / edit / delete challenges (this is how the app's
     Challenges screen is populated).
