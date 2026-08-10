@@ -13,6 +13,30 @@ const SERVICE_KEY = process.env.WALLET_SERVICE_KEY || '';
 
 const coll = (name) => mongoose.connection.db.collection(name);
 
+// Points economy defaults — used only until an admin saves settings, or if the
+// read fails. The live values live in the shared `settings` document so the
+// website checkout, the mobile app and these figures all price points the same.
+const DEFAULT_POINT_VALUE_INR = 0.1;
+const DEFAULT_REDEEM_CAP_PERCENT = 10;
+
+async function getPointsConfig() {
+  try {
+    const settings = await coll('settings').findOne({});
+    const v = Number(settings && settings.pointValueInr);
+    const c = Number(settings && settings.redeemCapPercent);
+    return {
+      pointValueInr: Number.isFinite(v) && v > 0 ? v : DEFAULT_POINT_VALUE_INR,
+      redeemCapPercent:
+        Number.isFinite(c) && c >= 0 && c <= 100 ? c : DEFAULT_REDEEM_CAP_PERCENT,
+    };
+  } catch (_) {
+    return {
+      pointValueInr: DEFAULT_POINT_VALUE_INR,
+      redeemCapPercent: DEFAULT_REDEEM_CAP_PERCENT,
+    };
+  }
+}
+
 // ISO year-week, e.g. "2026-W31" — mirrors the app backend's territory season.
 function currentSeason(now = new Date()) {
   const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -50,6 +74,7 @@ router.get('/analytics', async (req, res) => {
   try {
     const season = currentSeason();
     const since = new Date(Date.now() - 13 * 86400000); // last 14 days incl. today
+    const pointsConfig = await getPointsConfig();
 
     const [
       appFieldUsers,
@@ -157,7 +182,11 @@ router.get('/analytics', async (req, res) => {
         })),
       },
       points: {
-        valueInr: 0.1,
+        // Read from the shared settings document, not hardcoded — otherwise the
+        // liability figure silently disagrees with what checkout actually charges
+        // the moment an admin changes the rate.
+        valueInr: pointsConfig.pointValueInr,
+        redeemCapPercent: pointsConfig.redeemCapPercent,
         outstanding: Math.round((outstanding[0] && outstanding[0].total) || 0),
         earned: Math.round(econByType.credit || 0),
         redeemed: Math.round(econByType.debit || 0),

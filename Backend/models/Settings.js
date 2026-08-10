@@ -9,6 +9,13 @@ const settingsSchema = new mongoose.Schema({
   },
   saleRibbonColor: { type: String, default: '#e53935' },
   saleRibbonTextColor: { type: String, default: '#ffffff' },
+
+  // FitBox Points economy — the same shared `settings` document the website and
+  // the app read, so editing these here re-prices points everywhere with no
+  // website deploy and no mobile app release. Keep in sync with
+  // FitBox_Website/Backend/Models/Settings.js.
+  pointValueInr: { type: Number, default: 0.1, min: 0.01, max: 100 },
+  redeemCapPercent: { type: Number, default: 10, min: 0, max: 100 },
 }, { timestamps: true });
 
 export default mongoose.model('Settings', settingsSchema);

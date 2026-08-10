@@ -20,9 +20,9 @@ router.get('/', async (req, res) => {
 // PUT /api/settings - Update settings
 router.put('/', protect, async (req, res) => {
   try {
-    const { deliveryFee, freeDeliveryThreshold, saleRibbonText, saleRibbonColor, saleRibbonTextColor } = req.body;
+    const { deliveryFee, freeDeliveryThreshold, saleRibbonText, saleRibbonColor, saleRibbonTextColor, pointValueInr, redeemCapPercent } = req.body;
     let settings = await Settings.findOne();
-    
+
     if (!settings) {
       settings = await Settings.create({ deliveryFee, freeDeliveryThreshold, saleRibbonText, saleRibbonColor, saleRibbonTextColor });
     } else {
@@ -31,6 +31,22 @@ router.put('/', protect, async (req, res) => {
       if (saleRibbonText !== undefined) settings.saleRibbonText = saleRibbonText;
       if (saleRibbonColor !== undefined) settings.saleRibbonColor = saleRibbonColor;
       if (saleRibbonTextColor !== undefined) settings.saleRibbonTextColor = saleRibbonTextColor;
+      // Points economy — rejected rather than coerced: a bad value here
+      // re-prices every wallet balance in the system.
+      if (pointValueInr !== undefined) {
+        const v = Number(pointValueInr);
+        if (!Number.isFinite(v) || v <= 0) {
+          return res.status(400).json({ message: 'Point value must be a number greater than 0.' });
+        }
+        settings.pointValueInr = v;
+      }
+      if (redeemCapPercent !== undefined) {
+        const c = Number(redeemCapPercent);
+        if (!Number.isFinite(c) || c < 0 || c > 100) {
+          return res.status(400).json({ message: 'Redeem cap must be between 0 and 100 percent.' });
+        }
+        settings.redeemCapPercent = c;
+      }
       await settings.save();
     }
     
