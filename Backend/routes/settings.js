@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 // PUT /api/settings - Update settings
 router.put('/', protect, async (req, res) => {
   try {
-    const { deliveryFee, freeDeliveryThreshold, saleRibbonText, saleRibbonColor, saleRibbonTextColor, pointValueInr, redeemCapPercent } = req.body;
+    const { deliveryFee, freeDeliveryThreshold, saleRibbonText, saleRibbonColor, saleRibbonTextColor, pointValueInr, redeemCapPercent, seasonTopRewardInr } = req.body;
     let settings = await Settings.findOne();
 
     if (!settings) {
@@ -46,6 +46,13 @@ router.put('/', protect, async (req, res) => {
           return res.status(400).json({ message: 'Redeem cap must be between 0 and 100 percent.' });
         }
         settings.redeemCapPercent = c;
+      }
+      if (seasonTopRewardInr !== undefined) {
+        const r = Number(seasonTopRewardInr);
+        if (!Number.isFinite(r) || r < 0) {
+          return res.status(400).json({ message: 'Top season reward must be 0 or more.' });
+        }
+        settings.seasonTopRewardInr = r;
       }
       await settings.save();
     }
