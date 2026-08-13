@@ -7,6 +7,8 @@ import {
   Coins, Loader2, Plus, Pencil, Trash2, Send, CheckCircle2, XCircle, RefreshCw,
 } from 'lucide-react';
 
+import PointsSettings from './PointsSettings';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const TABS = [
@@ -15,6 +17,9 @@ const TABS = [
   { key: 'challenges', label: 'Challenges', icon: <Trophy size={16} /> },
   { key: 'push', label: 'Push', icon: <Bell size={16} /> },
   { key: 'territory', label: 'Territory', icon: <Map size={16} /> },
+  // The points economy belongs with the app, not with website settings: it is
+  // earned in the app and it drives the app's rewards.
+  { key: 'points', label: 'Points', icon: <Coins size={16} /> },
 ];
 
 const AppManagement = () => {
@@ -55,6 +60,7 @@ const AppManagement = () => {
       {tab === 'challenges' && <Challenges />}
       {tab === 'push' && <Push />}
       {tab === 'territory' && <Territory />}
+      {tab === 'points' && <PointsSettings />}
     </div>
   );
 };

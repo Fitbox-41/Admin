@@ -61,13 +61,78 @@ function seasonEndsAt(now = new Date()) {
 
 const appHeaders = () => ({ 'X-Service-Key': SERVICE_KEY });
 
+// Guard for every route that proxies to the app backend.
+//
+// Without this, a missing WALLET_SERVICE_KEY meant we sent an empty header and
+// surfaced the app backend's generic "Service authentication required" — which
+// reads like a login problem in the admin portal and gives no hint that an
+// environment variable is missing here. Fail early and say what to do instead.
+function requireServiceKey(res) {
+  if (SERVICE_KEY) return true;
+  res.status(503).json({
+    success: false,
+    message:
+      'This admin backend has no WALLET_SERVICE_KEY configured, so it cannot ' +
+      'authenticate to the FitBox app backend. Set WALLET_SERVICE_KEY in the ' +
+      'admin backend environment to exactly the same value as the app backend, ' +
+      'then redeploy.',
+    hint: 'Vercel → adminbackend01 → Settings → Environment Variables',
+  });
+  return false;
+}
+
 function forwardError(err, res) {
   if (err.response) {
+    // A 403 from upstream on a proxied call means our key was rejected, not that
+    // the admin user is unauthorised — make that distinction explicit.
+    if (err.response.status === 403) {
+      return res.status(502).json({
+        success: false,
+        message:
+          'The FitBox app backend rejected this admin backend\'s service key. ' +
+          'WALLET_SERVICE_KEY must be byte-identical on both backends — check ' +
+          'for a stale value or trailing whitespace, then redeploy.',
+        upstream: err.response.data,
+      });
+    }
     return res.status(err.response.status).json(err.response.data);
   }
   console.error('App upstream error:', err.message);
   return res.status(502).json({ success: false, message: 'App backend unreachable' });
 }
+
+// GET /api/app/config-check — is this backend able to talk to the app backend?
+// Lets the cause be identified from the browser instead of guessing at a 403.
+router.get('/config-check', async (req, res) => {
+  const result = {
+    appApiBase: APP_API_BASE,
+    serviceKeyConfigured: !!SERVICE_KEY,
+    serviceKeyLength: SERVICE_KEY ? SERVICE_KEY.length : 0,
+    appBackendReachable: false,
+    serviceKeyAccepted: null,
+  };
+  try {
+    const health = await axios.get(`${APP_API_BASE}/health`, { timeout: 10000 });
+    result.appBackendReachable = health.status === 200;
+    result.appBackendVersion = health.data && health.data.apiVersion;
+  } catch (_) {/* leave reachable false */}
+
+  if (SERVICE_KEY && result.appBackendReachable) {
+    try {
+      // A read-only service-key endpoint: 200 proves the key is accepted.
+      await axios.get(`${APP_API_BASE}/api/challenges/admin/all`, {
+        headers: appHeaders(),
+        timeout: 10000,
+      });
+      result.serviceKeyAccepted = true;
+    } catch (e) {
+      result.serviceKeyAccepted = !(e.response && e.response.status === 403);
+    }
+  }
+
+  result.ok = result.serviceKeyConfigured && result.appBackendReachable && result.serviceKeyAccepted === true;
+  res.json(result);
+});
 
 // ---- Analytics overview ---------------------------------------------------
 router.get('/analytics', async (req, res) => {
@@ -280,6 +345,7 @@ router.get('/users', async (req, res) => {
 // ---- Challenges CRUD (proxied to the app backend admin endpoints) ---------
 router.get('/challenges', async (req, res) => {
   try {
+    if (!requireServiceKey(res)) return;
     const r = await axios.get(`${APP_API_BASE}/api/challenges/admin/all`, { headers: appHeaders() });
     res.json(r.data);
   } catch (err) {
@@ -289,6 +355,7 @@ router.get('/challenges', async (req, res) => {
 
 router.post('/challenges', async (req, res) => {
   try {
+    if (!requireServiceKey(res)) return;
     const r = await axios.post(`${APP_API_BASE}/api/challenges/admin`, req.body, {
       headers: appHeaders(),
     });
@@ -300,6 +367,7 @@ router.post('/challenges', async (req, res) => {
 
 router.put('/challenges/:id', async (req, res) => {
   try {
+    if (!requireServiceKey(res)) return;
     const r = await axios.put(
       `${APP_API_BASE}/api/challenges/admin/${req.params.id}`,
       req.body,
@@ -313,6 +381,7 @@ router.put('/challenges/:id', async (req, res) => {
 
 router.delete('/challenges/:id', async (req, res) => {
   try {
+    if (!requireServiceKey(res)) return;
     const r = await axios.delete(`${APP_API_BASE}/api/challenges/admin/${req.params.id}`, {
       headers: appHeaders(),
     });
@@ -334,6 +403,7 @@ router.get('/push/status', async (req, res) => {
 
 router.post('/push/send', async (req, res) => {
   try {
+    if (!requireServiceKey(res)) return;
     const r = await axios.post(`${APP_API_BASE}/api/push/send`, req.body, {
       headers: appHeaders(),
     });

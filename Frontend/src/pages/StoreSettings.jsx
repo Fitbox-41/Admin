@@ -1,45 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Truck, Gift, Megaphone, Coins, Percent, Trophy } from 'lucide-react';
+import { Truck, Gift, Megaphone } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const DEFAULT_SALE_TEXT = 'SUMMER SALE IS LIVE! GET UP TO 50% OFF ON ALL GYM EQUIPMENT • USE CODE: FIT50 • LIMITED TIME OFFER • FREE DELIVERY ON ORDERS ABOVE ₹999 • ';
 const DEFAULT_RIBBON_COLOR = '#e53935';
 const DEFAULT_TEXT_COLOR = '#ffffff';
-const DEFAULT_POINT_VALUE_INR = 0.1;
-const DEFAULT_REDEEM_CAP_PERCENT = 10;
-const DEFAULT_SEASON_TOP_REWARD_INR = 200;
-const PAID_PLACES = 20;
 
-// Mirrors backend/seasonRewards.js: first place takes the configured award and
-// every place below scales down by rank. Used only to preview the table here —
-// the backend remains the authority at settlement.
-const rankWeight = (rank) => 1 / Math.pow(rank, 0.8);
-
-const previewPrizeTable = (topRewardInr) => {
-  const top = Number(topRewardInr);
-  if (!Number.isFinite(top) || top < 0) return { rows: [], total: 0 };
-  // Assumes an evenly-matched field, which is the most a season can cost.
-  const rows = Array.from({ length: PAID_PLACES }, (_, i) => ({
-    rank: i + 1,
-    inr: top * (rankWeight(i + 1) / rankWeight(1)),
-  }));
-  return { rows, total: rows.reduce((sum, r) => sum + r.inr, 0) };
-};
-
+// Note: the FitBox Points economy (point value, redemption limit, weekly prize)
+// is NOT edited here — it lives under FitBox App → Points, because it is earned
+// in the app and drives the app's rewards. This page must not send those fields,
+// or saving store settings would overwrite them with stale values.
 const StoreSettings = () => {
   const [deliveryFee, setDeliveryFee] = useState(99);
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(999);
   const [saleRibbonText, setSaleRibbonText] = useState(DEFAULT_SALE_TEXT);
   const [saleRibbonColor, setSaleRibbonColor] = useState(DEFAULT_RIBBON_COLOR);
   const [saleRibbonTextColor, setSaleRibbonTextColor] = useState(DEFAULT_TEXT_COLOR);
-  const [pointValueInr, setPointValueInr] = useState(DEFAULT_POINT_VALUE_INR);
-  const [redeemCapPercent, setRedeemCapPercent] = useState(DEFAULT_REDEEM_CAP_PERCENT);
-  const [seasonTopRewardInr, setSeasonTopRewardInr] = useState(DEFAULT_SEASON_TOP_REWARD_INR);
-  // What the rate currently in force is worth, so a change can be judged before
-  // saving — editing the rate re-prices every outstanding balance at once.
-  const [savedPointValue, setSavedPointValue] = useState(DEFAULT_POINT_VALUE_INR);
-  const [outstandingPoints, setOutstandingPoints] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -63,75 +40,20 @@ const StoreSettings = () => {
           if (data.saleRibbonTextColor) {
             setSaleRibbonTextColor(data.saleRibbonTextColor);
           }
-          if (Number(data.pointValueInr) > 0) {
-            setPointValueInr(data.pointValueInr);
-            setSavedPointValue(Number(data.pointValueInr));
-          }
-          // 0 is a valid cap (redemption switched off).
-          if (data.redeemCapPercent !== undefined && data.redeemCapPercent !== null) {
-            setRedeemCapPercent(data.redeemCapPercent);
-          }
-          // 0 is valid (prizes switched off).
-          if (data.seasonTopRewardInr !== undefined && data.seasonTopRewardInr !== null) {
-            setSeasonTopRewardInr(data.seasonTopRewardInr);
-          }
         }
       } catch (error) {
         console.error('Error fetching settings:', error);
       }
     };
     fetchSettings();
-
-    // Outstanding points, for the liability preview below.
-    const fetchLiability = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/app/analytics`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        const pts = data?.points?.outstanding;
-        if (Number.isFinite(Number(pts))) setOutstandingPoints(Number(pts));
-      } catch (error) {
-        console.error('Error fetching points liability:', error);
-      }
-    };
-    fetchLiability();
   }, []);
 
   const handleSaveSettings = async () => {
-    const value = Number(pointValueInr);
-    const cap = Number(redeemCapPercent);
-    if (!Number.isFinite(value) || value <= 0) {
-      alert('Point value must be greater than 0.');
-      return;
-    }
-    if (!Number.isFinite(cap) || cap < 0 || cap > 100) {
-      alert('Redeem limit must be between 0 and 100 percent.');
-      return;
-    }
-    const topReward = Number(seasonTopRewardInr);
-    if (!Number.isFinite(topReward) || topReward < 0) {
-      alert('Weekly top reward must be 0 or more.');
-      return;
-    }
-    // Changing the rate re-prices every point already issued, so make the
-    // consequence explicit rather than letting it happen quietly.
-    if (value !== savedPointValue && outstandingPoints !== null) {
-      const before = (outstandingPoints * savedPointValue).toFixed(2);
-      const after = (outstandingPoints * value).toFixed(2);
-      const ok = window.confirm(
-        `This changes the value of every point already issued.\n\n` +
-        `${outstandingPoints.toLocaleString()} points outstanding\n` +
-        `Now:   ₹${before}  (at ₹${savedPointValue})\n` +
-        `After: ₹${after}  (at ₹${value})\n\nSave anyway?`
-      );
-      if (!ok) return;
-    }
-
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
+      // Only store fields — points fields are omitted on purpose so this page
+      // cannot overwrite the economy configured under FitBox App → Points.
       const response = await fetch(`${API_URL}/settings`, {
         method: 'PUT',
         headers: {
@@ -143,14 +65,10 @@ const StoreSettings = () => {
           freeDeliveryThreshold: parseInt(freeDeliveryThreshold, 10),
           saleRibbonText: saleRibbonText,
           saleRibbonColor: saleRibbonColor,
-          saleRibbonTextColor: saleRibbonTextColor,
-          pointValueInr: value,
-          redeemCapPercent: cap,
-          seasonTopRewardInr: topReward
+          saleRibbonTextColor: saleRibbonTextColor
         })
       });
       if (response.ok) {
-        setSavedPointValue(value);
         alert('Settings saved successfully');
       } else {
         const err = await response.json().catch(() => ({}));
@@ -216,142 +134,6 @@ const StoreSettings = () => {
                 />
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* FitBox Points economy — read by the website checkout, the mobile app
-            and the analytics liability figure, so no deploy or app release is
-            needed to change them. */}
-        <div>
-          <h3 className="font-bold mb-2 text-text-dark text-lg border-b border-border pb-2">FitBox Points</h3>
-          <p className="text-sm text-text-mid mb-4">
-            Applies everywhere at once — website checkout, the mobile app and the published
-            Terms &amp; Conditions. No app update needed.
-          </p>
-
-          <div className="space-y-6 py-2">
-            {/* Point value */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary">
-                  <Coins size={18} />
-                </div>
-                <div>
-                  <p className="font-medium text-text-dark">Point Value (₹ per point)</p>
-                  <p className="text-sm text-text-mid">What one point is worth at checkout</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <input
-                  type="number"
-                  value={pointValueInr}
-                  onChange={(e) => setPointValueInr(e.target.value)}
-                  className="w-24 px-3 py-1.5 border border-border rounded-lg bg-bg focus:outline-none focus:ring-2 focus:ring-primary/20 text-text-dark font-medium"
-                  min="0.01"
-                  step="0.01"
-                />
-              </div>
-            </div>
-
-            {/* Redemption limit */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary">
-                  <Percent size={18} />
-                </div>
-                <div>
-                  <p className="font-medium text-text-dark">Redemption Limit (% of order)</p>
-                  <p className="text-sm text-text-mid">
-                    Most an order can be paid with points. Enforced server-side and stated in the
-                    Terms; not shown on the cart or checkout.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <input
-                  type="number"
-                  value={redeemCapPercent}
-                  onChange={(e) => setRedeemCapPercent(e.target.value)}
-                  className="w-24 px-3 py-1.5 border border-border rounded-lg bg-bg focus:outline-none focus:ring-2 focus:ring-primary/20 text-text-dark font-medium"
-                  min="0"
-                  max="100"
-                  step="1"
-                />
-              </div>
-            </div>
-
-            {/* Weekly season prize */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary">
-                  <Trophy size={18} />
-                </div>
-                <div>
-                  <p className="font-medium text-text-dark">Weekly Top Reward (₹)</p>
-                  <p className="text-sm text-text-mid">
-                    What 1st place wins when a territory season closes. Places 2–{PAID_PLACES} are
-                    calculated from it automatically by rank and area held.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <input
-                  type="number"
-                  value={seasonTopRewardInr}
-                  onChange={(e) => setSeasonTopRewardInr(e.target.value)}
-                  className="w-24 px-3 py-1.5 border border-border rounded-lg bg-bg focus:outline-none focus:ring-2 focus:ring-primary/20 text-text-dark font-medium"
-                  min="0"
-                  step="10"
-                />
-              </div>
-            </div>
-
-            {/* Prize table preview — what this setting actually pays out */}
-            {(() => {
-              const { rows, total } = previewPrizeTable(seasonTopRewardInr);
-              if (!rows.length) return null;
-              const shown = [0, 1, 2, 4, 9, 19]; // ranks 1,2,3,5,10,20
-              return (
-                <div className="rounded-lg bg-bg border border-border p-4">
-                  <p className="text-xs font-semibold text-text-mid uppercase tracking-wider mb-2">
-                    Prize table
-                  </p>
-                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-text-dark">
-                    {shown.map((i) => (
-                      <span key={rows[i].rank}>
-                        <span className="text-text-mid">#{rows[i].rank}</span>{' '}
-                        <strong>₹{rows[i].inr.toFixed(2)}</strong>
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-sm text-text-mid mt-2">
-                    A full table of {PAID_PLACES} costs at most{' '}
-                    <strong className="text-text-dark">₹{total.toFixed(2)}</strong> per week
-                    {Number(pointValueInr) > 0 && (
-                      <> ({Math.round(total / Number(pointValueInr)).toLocaleString()} points)</>
-                    )}
-                    . Fewer players means fewer prizes paid.
-                  </p>
-                </div>
-              );
-            })()}
-
-            {/* Liability preview */}
-            {outstandingPoints !== null && (
-              <div className="rounded-lg bg-bg border border-border p-4">
-                <p className="text-xs font-semibold text-text-mid uppercase tracking-wider mb-1">
-                  Outstanding liability
-                </p>
-                <p className="text-sm text-text-dark">
-                  <strong>{outstandingPoints.toLocaleString()}</strong> points are held by customers —
-                  worth <strong>₹{(outstandingPoints * (Number(pointValueInr) || 0)).toFixed(2)}</strong>
-                  {Number(pointValueInr) !== savedPointValue && (
-                    <> at the new rate, versus <strong>₹{(outstandingPoints * savedPointValue).toFixed(2)}</strong> today</>
-                  )}
-                  .
-                </p>
-              </div>
-            )}
           </div>
         </div>
 
