@@ -37,7 +37,8 @@ A modern, responsive, and aesthetically pleasing administrative dashboard for th
   - *Challenges*: create / edit / delete challenges (this is how the app's
     Challenges screen is populated).
   - *Push*: compose a notification to all users or a single user (live FCM).
-  - *Territory*: current weekly season + leaderboard.
+  - *Territory*: the lifetime map holdings plus this week's gain leaderboard
+    (the weekly prize ranks area gained that week, not total held).
 
   Backend `Backend/routes/app.js` (`/api/app/*`): analytics/users/territory read
   the shared DB directly; challenges + push proxy to the app backend with the
