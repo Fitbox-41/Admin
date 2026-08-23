@@ -207,7 +207,9 @@ router.get('/analytics', async (req, res) => {
       coll('challenges').countDocuments({}),
       coll('challenge_progress').countDocuments({}),
       coll('challenge_progress').countDocuments({ claimed: true }),
-      coll('territories').find({ season, area: { $gt: 0 } }).toArray(),
+      // Lifetime holdings — territory no longer resets weekly, so filtering by
+      // season would show an empty map every Monday.
+      coll('territories').find({ area: { $gt: 0 } }).toArray(),
     ]);
 
     // App users = signed in on the app (stamped) OR have an app-only footprint.
@@ -302,7 +304,7 @@ router.get('/users', async (req, res) => {
           { $group: { _id: '$userId', runs: { $sum: 1 }, distance: { $sum: '$distance' } } },
         ])
         .toArray(),
-      coll('territories').find({ season, userId: { $in: ids } }).toArray(),
+      coll('territories').find({ userId: { $in: ids } }).toArray(),
     ]);
 
     const runMap = new Map(runAgg.map((r) => [String(r._id), r]));
