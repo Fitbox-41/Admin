@@ -194,7 +194,11 @@ const AppUsers = () => {
   }, []);
 
   const filtered = users.filter(
-    (u) => u.name?.toLowerCase().includes(q.toLowerCase()) || u.email?.toLowerCase().includes(q.toLowerCase()),
+    (u) =>
+      u.name?.toLowerCase().includes(q.toLowerCase()) ||
+      u.email?.toLowerCase().includes(q.toLowerCase()) ||
+      // Searchable by map name, so a leaderboard entry can be looked up directly.
+      u.mapName?.toLowerCase().includes(q.toLowerCase()),
   );
 
   return (
@@ -220,7 +224,22 @@ const AppUsers = () => {
               {filtered.map((u) => (
                 <tr key={u._id} className="hover:bg-bg/50 text-sm">
                   <td className="px-5 py-3">
-                    <div className="font-medium text-text-dark">{u.name}</div>
+                    <div className="font-medium text-text-dark">
+                      {u.name}
+                      {/* What this player is called on the territory map, when
+                          they've chosen something different. Shown here so the
+                          leaderboard can be matched back to a customer. */}
+                      {u.mapName && (
+                        <span className="ml-2 text-xs font-normal text-text-light">
+                          plays as {u.mapName}
+                          {u.tag && (
+                            <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-primary">
+                              {u.tag}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-text-light">{u.email}</div>
                   </td>
                   <td className="px-5 py-3 font-medium">{u.points}</td>

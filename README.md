@@ -33,7 +33,11 @@ A modern, responsive, and aesthetically pleasing administrative dashboard for th
     The points-liability figure prices points at the **configured** rate (read
     from the shared `settings` document in `Backend/routes/app.js`), so it always
     matches what checkout actually applies.
-  - *Users*: app users with points / runs / distance / territory / push status.
+  - *Users*: app users with points / runs / distance / territory / push status,
+    plus the name and tag they chose for the territory map ("plays as …") where
+    it differs from the account name. Searchable by that map name, so a
+    leaderboard entry can be traced back to a customer — otherwise support sees
+    "Speedy" at the top of the board with no way to tell who that is.
   - *Challenges*: create / edit / delete challenges (this is how the app's
     Challenges screen is populated).
   - *Push*: compose a notification to all users or a single user (live FCM).

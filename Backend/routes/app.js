@@ -289,6 +289,11 @@ router.get('/users', async (req, res) => {
           projection: {
             name: 1, email: 1, walletBalance: 1, createdAt: 1,
             fcmTokens: 1, lastAppLoginAt: 1,
+            // Players can choose a name and tag for the territory map, which is
+            // what the map and the territory leaderboard show. Without it here,
+            // support sees "Speedy" topping the leaderboard and has no way to
+            // tell which customer that is.
+            displayName: 1, tag: 1,
           },
         },
       )
@@ -317,6 +322,9 @@ router.get('/users', async (req, res) => {
         return {
           _id: u._id,
           name: u.name || 'Runner',
+          // What this player is called on the map, when they've set one.
+          mapName: u.displayName || '',
+          tag: u.tag || '',
           email: u.email || '',
           points: u.walletBalance || 0,
           runs: r ? r.runs : 0,
